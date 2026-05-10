@@ -1,0 +1,30 @@
+name: package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet publish src/Nuvio.Desktop/Nuvio.Desktop.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained true --output artifacts/${{ matrix.rid }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuvio-desktop-${{ matrix.rid }}
+          path: artifacts/${{ matrix.rid }}

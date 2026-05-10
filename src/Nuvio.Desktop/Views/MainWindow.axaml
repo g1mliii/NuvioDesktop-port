@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Nuvio.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
+        x:Class="Nuvio.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Nuvio Desktop"
+        Width="1040"
+        Height="680"
+        MinWidth="760"
+        MinHeight="520">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*" Background="#121417">
+        <Border Grid.Row="0" Background="#191D22" BorderBrush="#2A3038" BorderThickness="0,0,0,1" Padding="24,18">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding AppName}" FontSize="24" FontWeight="SemiBold" Foreground="#F4F6F8"/>
+                    <TextBlock Text="{Binding PhaseStatus}" FontSize="13" Foreground="#AAB2BD"/>
+                </StackPanel>
+                <Border Grid.Column="1" Padding="12,6" CornerRadius="4" Background="#24313C" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RuntimeIdentifier}" FontSize="12" Foreground="#D6E7F4"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="220,*">
+            <Border Background="#161A1F" BorderBrush="#252B33" BorderThickness="0,0,1,0" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Home" Foreground="#F4F6F8" FontSize="14" FontWeight="SemiBold"/>
+                    <TextBlock Text="Search" Foreground="#8F98A3" FontSize="14"/>
+                    <TextBlock Text="Catalog" Foreground="#8F98A3" FontSize="14"/>
+                    <TextBlock Text="Addons" Foreground="#8F98A3" FontSize="14"/>
+                    <TextBlock Text="Player" Foreground="#8F98A3" FontSize="14"/>
+                    <TextBlock Text="Settings" Foreground="#8F98A3" FontSize="14"/>
+                </StackPanel>
+            </Border>
+
+            <Grid Margin="28" RowDefinitions="Auto,Auto,*">
+                <TextBlock Text="Desktop foundation is ready" FontSize="28" FontWeight="SemiBold" Foreground="#F4F6F8"/>
+                <TextBlock Grid.Row="1"
+                           Margin="0,8,0,24"
+                           Text="Avalonia shell, project boundaries, CI, compliance checks, and cross-platform targets are in place."
+                           TextWrapping="Wrap"
+                           Foreground="#AAB2BD"
+                           FontSize="14"/>
+
+                <Border Grid.Row="2" Background="#191D22" BorderBrush="#2A3038" BorderThickness="1" CornerRadius="6" Padding="20" MaxWidth="620" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Current platform" Foreground="#AAB2BD" FontSize="12"/>
+                        <TextBlock Text="{Binding PlatformName}" Foreground="#F4F6F8" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding PlatformDescription}" Foreground="#AAB2BD" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

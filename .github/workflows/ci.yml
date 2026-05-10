@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches: [main, desktop-port]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - run: dotnet test --configuration Release --no-build
+      - name: Compliance files
+        shell: pwsh
+        run: |
+          $required = @('LICENSE', 'NOTICE', 'docs/legal-compliance.md', 'docs/dependency-licenses.md')
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) {
+              throw "Missing required compliance file: $path"
+            }
+          }

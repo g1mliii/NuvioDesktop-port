@@ -1,0 +1,12 @@
+Nuvio Desktop
+
+This project is a desktop port/fork effort for Nuvio and is distributed under the GNU General Public License version 3, or later.
+
+Release artifacts must include:
+
+- LICENSE
+- NOTICE
+- dependency license inventory
+- source availability instructions
+
+Third-party dependency notices are tracked in docs/dependency-licenses.md and must be completed before public binary distribution.
