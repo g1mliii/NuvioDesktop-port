@@ -14,6 +14,7 @@ This repository is currently in Phase 0: repo setup, architecture skeleton, CI, 
 
 ```powershell
 ./scripts/bootstrap.ps1
+./scripts/fetch-upstream.ps1
 ./scripts/verify-all.ps1
 dotnet run --project src/Nuvio.Desktop/Nuvio.Desktop.csproj
 ```
@@ -22,6 +23,7 @@ On macOS/Linux:
 
 ```bash
 ./scripts/bootstrap.sh
+./scripts/fetch-upstream.sh
 ./scripts/verify-all.sh
 dotnet run --project src/Nuvio.Desktop/Nuvio.Desktop.csproj
 ```
@@ -35,6 +37,10 @@ dotnet run --project src/Nuvio.Desktop/Nuvio.Desktop.csproj
 - `src/Nuvio.Data`: SQLite/cache persistence layer.
 - `docs`: architecture, player, packaging, performance, and compliance notes.
 - `tests`: unit and compliance tests.
+
+## Upstream References
+
+`NuvioMobile` and `NuvioTV` are cloned into ignored `upstream/` folders for porting reference. Keep upstream checkouts out of Git; port behavior deliberately into the C# projects with tests.
 
 ## Non-Negotiables
 
