@@ -8,13 +8,13 @@ Nuvio launches the real `mpv` binary directly through JSON IPC. MPV Manager can 
 2. A future Nuvio-managed or bundled `mpv` path beside the app.
 3. `mpv` installed by MPV Manager, when the final `mpv` binary is discoverable.
 4. `mpv` on `PATH`.
-5. Common platform install locations.
+5. Common platform install locations, including Chocolatey-installed mpv on Windows.
 
 The locator rejects `mpv-manager` executables. A manager binary may install or configure mpv, but playback must still use `mpv.exe` on Windows or `mpv` on macOS/Linux.
 
 ## Direct Install
 
-- Windows: use the official mpv install page and a current Windows build, or install through a trusted package manager.
+- Windows: use the official mpv install page and a current Windows build, or install through a trusted package manager such as Chocolatey.
 - macOS: use Homebrew, MacPorts, or the official mpv install page.
 - Linux: use a current distro package, third-party package, or mpv-build when the distro package is too old.
 

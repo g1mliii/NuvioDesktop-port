@@ -85,6 +85,21 @@ public sealed class MpvProcessLocatorTests
     }
 
     [Fact]
+    public void Locate_DetectsChocolateyMpvWhenPathHasNotRefreshed()
+    {
+        var programData = Path.Combine("C:", "ProgramData");
+        var chocolateyMpv = Path.Combine(programData, "chocolatey", "lib", "mpvio.install", "tools", "mpv-0.41.0-x86_64_x64", "mpv.exe");
+
+        var result = Locate(
+            files: [chocolateyMpv],
+            programDataDirectory: programData);
+
+        Assert.True(result.IsAvailable);
+        Assert.Equal(chocolateyMpv, result.ExecutablePath);
+        Assert.Equal(MpvInstallationSource.CommonLocation, result.Source);
+    }
+
+    [Fact]
     public void Locate_DetectsMacOsCommonMpv()
     {
         var mpvPath = "/opt/homebrew/bin/mpv";
@@ -118,6 +133,7 @@ public sealed class MpvProcessLocatorTests
         string? environmentOverridePath = null,
         string? appBaseDirectory = null,
         string? localApplicationDataDirectory = null,
+        string? programDataDirectory = null,
         string? pathVariable = null)
     {
         var comparison = platformFamily == PlatformFamily.Windows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -131,6 +147,7 @@ public sealed class MpvProcessLocatorTests
             Path.Combine("C:", "Users", "Subai"),
             localApplicationDataDirectory ?? Path.Combine("C:", "Users", "Subai", "AppData", "Local"),
             Path.Combine("C:", "Users", "Subai", "AppData", "Roaming"),
+            programDataDirectory ?? Path.Combine("C:", "ProgramData"),
             path => fileSet.Contains(path),
             (directory, pattern) => fileSet.Where(path => path.StartsWith(directory, comparison) && Path.GetFileName(path).Equals(pattern, comparison)),
             _ => "mpv 0.41.0");

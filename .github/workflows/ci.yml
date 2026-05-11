@@ -22,7 +22,15 @@ jobs:
           dotnet-version: 10.0.x
       - name: Install mpv on Windows
         if: runner.os == 'Windows'
-        run: choco install mpv -y --no-progress
+        shell: pwsh
+        run: |
+          choco install mpv -y --no-progress
+          $chocoRoot = if ($env:ChocolateyInstall) { $env:ChocolateyInstall } else { 'C:\ProgramData\chocolatey' }
+          $mpv = Get-ChildItem -Path "$chocoRoot\lib\mpvio.install\tools" -Filter mpv.exe -Recurse -File | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $mpv) {
+            throw 'Chocolatey installed mpv, but mpv.exe was not found under the mpvio.install tools directory.'
+          }
+          "NUVIO_MPV_PATH=$mpv" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Install mpv on macOS
         if: runner.os == 'macOS'
         run: brew install mpv

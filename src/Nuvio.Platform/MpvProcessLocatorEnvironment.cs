@@ -10,6 +10,7 @@ public sealed record MpvProcessLocatorEnvironment(
     string? UserProfileDirectory,
     string? LocalApplicationDataDirectory,
     string? ApplicationDataDirectory,
+    string? ProgramDataDirectory,
     Func<string, bool> FileExists,
     Func<string, string, IEnumerable<string>> EnumerateFiles,
     Func<string, string?> GetVersion)
@@ -24,6 +25,7 @@ public sealed record MpvProcessLocatorEnvironment(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             File.Exists,
             EnumerateFilesSafe,
             TryGetVersion);

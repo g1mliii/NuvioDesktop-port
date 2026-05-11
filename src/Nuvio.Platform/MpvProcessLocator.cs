@@ -169,6 +169,19 @@ public sealed class MpvProcessLocator
             yield return Join(root, "Programs", "mpv", "mpv.exe");
             yield return Join(root, "scoop", "apps", "mpv", "current", "mpv.exe");
         }
+
+        foreach (var root in NonEmpty(_environment.ProgramDataDirectory))
+        {
+            yield return Join(root, "chocolatey", "bin", "mpv.exe");
+
+            var chocolateyToolsRoot = Join(root, "chocolatey", "lib", "mpvio.install", "tools");
+            yield return Join(chocolateyToolsRoot, "mpv.exe");
+
+            foreach (var path in _environment.EnumerateFiles(chocolateyToolsRoot, "mpv.exe"))
+            {
+                yield return path;
+            }
+        }
     }
 
     private string ExecutableName() => _environment.PlatformFamily == PlatformFamily.Windows ? "mpv.exe" : "mpv";
