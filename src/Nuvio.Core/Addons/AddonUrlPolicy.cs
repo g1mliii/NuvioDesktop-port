@@ -92,6 +92,10 @@ public static class AddonUrlPolicy
         {
             resolved = new Uri("https:" + value);
         }
+        else if (value.StartsWith("/", StringComparison.Ordinal))
+        {
+            resolved = new Uri(manifestUrl, value);
+        }
         else if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
         {
             resolved = absolute;

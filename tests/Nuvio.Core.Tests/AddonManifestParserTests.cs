@@ -68,4 +68,15 @@ public sealed class AddonManifestParserTests
 
         Assert.Equal("https://localhost:11470/fixture/manifest.json", normalized.ToString());
     }
+
+    [Fact]
+    public void ResolveManifestAssetUri_TreatsLeadingSlashAsWebRootRelative()
+    {
+        var logo = AddonUrlPolicy.ResolveManifestAssetUri(
+            new Uri("https://addons.example.test/fixture/manifest.json?token=fixture"),
+            "/assets/logo.png",
+            "Manifest logo");
+
+        Assert.Equal("https://addons.example.test/assets/logo.png", logo.ToString());
+    }
 }
