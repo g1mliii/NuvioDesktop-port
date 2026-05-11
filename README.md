@@ -8,7 +8,7 @@ This repository has completed the Phase 0 scaffold and now includes the Phase 1 
 
 - .NET SDK 10.0.x
 - Avalonia templates for local project generation
-- mpv for later playback work, initially discovered as an external process
+- mpv for playback work, initially discovered as an external process
 
 ## Quick Start
 
@@ -18,6 +18,8 @@ This repository has completed the Phase 0 scaffold and now includes the Phase 1 
 ./scripts/verify-all.ps1
 dotnet run --project src/Nuvio.Desktop/Nuvio.Desktop.csproj
 ```
+
+For Phase 2 playback setup, install `mpv` directly or use MPV Manager as an optional helper, then confirm the final `mpv` binary is visible to Nuvio. See `docs/mpv-setup.md`.
 
 On macOS/Linux:
 
@@ -48,6 +50,7 @@ dotnet run --project src/Nuvio.Desktop/Nuvio.Desktop.csproj
 - Windows, macOS, and Linux are first-class targets.
 - Keep playback behind `IPlayerEngine`.
 - Keep platform-specific code isolated.
+- Treat MPV Manager as setup-only; launch the real `mpv` binary directly.
 - Do not load full catalogs or unbounded poster images into memory.
 - Do not log sensitive stream URLs, tokens, or headers.
 - Do not distribute binaries without GPL/source/license compliance.

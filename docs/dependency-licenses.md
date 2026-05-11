@@ -6,4 +6,5 @@ This file is a release-blocking placeholder. Before public binary distribution, 
 |---|---|---|---|---|
 | Avalonia | desktop UI framework | TBD | yes | generated template dependency |
 | CommunityToolkit.Mvvm | MVVM helpers | TBD | yes | generated template dependency |
-| mpv/libmpv | playback backend | TBD | TBD | Phase 2+ |
+| mpv/libmpv | playback backend | TBD | no for Phase 2 | External `mpv` is discovered and launched directly; bundling requires a later provenance and license pass. |
+| MPV Manager | optional setup helper | MIT per upstream site | no | Documented only; not launched, bundled, or trusted as a playback executable. |

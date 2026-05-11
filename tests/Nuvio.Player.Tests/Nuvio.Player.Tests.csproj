@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nuvio.Player\Nuvio.Player.csproj" />
     <ProjectReference Include="..\..\src\Nuvio.Core\Nuvio.Core.csproj" />
+    <ProjectReference Include="..\..\src\Nuvio.Platform\Nuvio.Platform.csproj" />
   </ItemGroup>
 
 </Project>

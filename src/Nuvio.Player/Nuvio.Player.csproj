@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Nuvio.Core\Nuvio.Core.csproj" />
+    <ProjectReference Include="..\Nuvio.Platform\Nuvio.Platform.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -9,7 +9,9 @@ public interface IPlayerEngine : IAsyncDisposable
     Task PlayAsync(CancellationToken cancellationToken);
     Task PauseAsync(CancellationToken cancellationToken);
     Task SeekAsync(TimeSpan position, CancellationToken cancellationToken);
+    Task StopAsync(CancellationToken cancellationToken);
     Task SetVolumeAsync(int volume, CancellationToken cancellationToken);
+    Task SetFullscreenAsync(bool isFullscreen, CancellationToken cancellationToken);
     Task SelectAudioTrackAsync(string trackId, CancellationToken cancellationToken);
     Task SelectSubtitleTrackAsync(string? trackId, CancellationToken cancellationToken);
     IAsyncEnumerable<PlayerEvent> Events(CancellationToken cancellationToken);

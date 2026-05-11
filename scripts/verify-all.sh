@@ -13,6 +13,7 @@ for path in \
   docs/architecture.md \
   docs/platform-matrix.md \
   docs/player-integration.md \
+  docs/mpv-setup.md \
   docs/performance-budget.md \
   docs/regression-checklist.md \
   docs/phase-1-behavior-mapping.md \

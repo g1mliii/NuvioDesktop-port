@@ -20,13 +20,26 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - name: Install mpv on Windows
+        if: runner.os == 'Windows'
+        run: choco install mpv -y --no-progress
+      - name: Install mpv on macOS
+        if: runner.os == 'macOS'
+        run: brew install mpv
+      - name: Install mpv on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mpv
       - run: dotnet restore
       - run: dotnet build --configuration Release --no-restore
       - run: dotnet test --configuration Release --no-build
+        env:
+          NUVIO_RUN_MPV_INTEGRATION: '1'
       - name: Compliance files
         shell: pwsh
         run: |
-          $required = @('LICENSE', 'NOTICE', 'docs/legal-compliance.md', 'docs/dependency-licenses.md')
+          $required = @('LICENSE', 'NOTICE', 'docs/legal-compliance.md', 'docs/dependency-licenses.md', 'docs/mpv-setup.md')
           foreach ($path in $required) {
             if (-not (Test-Path $path)) {
               throw "Missing required compliance file: $path"

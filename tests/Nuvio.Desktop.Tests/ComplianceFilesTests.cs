@@ -7,11 +7,23 @@ public sealed class ComplianceFilesTests
     [InlineData("NOTICE")]
     [InlineData("docs/legal-compliance.md")]
     [InlineData("docs/dependency-licenses.md")]
+    [InlineData("docs/mpv-setup.md")]
     public void RequiredComplianceFilesExist(string relativePath)
     {
         var root = FindRepositoryRoot();
 
         Assert.True(File.Exists(Path.Combine(root, relativePath)), $"{relativePath} is required for release compliance.");
+    }
+
+    [Fact]
+    public void MpvSetupDocs_StateManagerPolicy()
+    {
+        var root = FindRepositoryRoot();
+        var text = File.ReadAllText(Path.Combine(root, "docs/mpv-setup.md"));
+
+        Assert.Contains("MPV Manager", text);
+        Assert.Contains("optional setup helper", text);
+        Assert.Contains("not a runtime dependency", text);
     }
 
     private static string FindRepositoryRoot()
