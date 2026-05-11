@@ -53,6 +53,7 @@ public sealed class ExternalMpvEngineIntegrationTests
         {
             await engine.InitializeAsync(options, cancellation.Token);
             await engine.LoadAsync(new StreamSource("generated-wav", new Uri(fixturePath), "Generated WAV", "audio", new Dictionary<string, string>(), [], true), cancellation.Token);
+            await WaitForEventAsync(events, playerEvent => playerEvent is PlayerEvent.FileLoaded, cancellation.Token);
             await engine.PlayAsync(cancellation.Token);
             await Task.Delay(500, cancellation.Token);
             await engine.PauseAsync(cancellation.Token);
@@ -147,6 +148,24 @@ public sealed class ExternalMpvEngineIntegrationTests
         }
         catch (TimeoutException)
         {
+        }
+    }
+
+    private static async Task WaitForEventAsync(List<PlayerEvent> events, Func<PlayerEvent, bool> predicate, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            lock (events)
+            {
+                if (events.Any(predicate))
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(50, cancellationToken);
         }
     }
 
