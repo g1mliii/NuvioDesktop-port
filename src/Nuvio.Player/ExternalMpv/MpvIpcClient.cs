@@ -13,6 +13,7 @@ public sealed class MpvIpcClient : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Task _readTask;
     private long _requestId;
+    private int _isDisposed;
 
     public MpvIpcClient(Stream stream)
     {
@@ -119,10 +120,42 @@ public sealed class MpvIpcClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _isDisposed, 1) == 1)
+        {
+            return;
+        }
+
         await _lifetime.CancelAsync().ConfigureAwait(false);
-        _writer.Dispose();
-        _reader.Dispose();
-        await _stream.DisposeAsync().ConfigureAwait(false);
+
+        try
+        {
+            _writer.Dispose();
+        }
+        catch (IOException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        try
+        {
+            _reader.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        try
+        {
+            await _stream.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
 
         try
         {
