@@ -1,0 +1,42 @@
+{
+  "streams": [
+    {
+      "name": "Fixture 1080p",
+      "description": "1080p | 2.0 GB | English",
+      "quality": "1080p",
+      "url": "https://cdn.example.test/video.m3u8?token=secret",
+      "behaviorHints": {
+        "bingeGroup": "fixture-group",
+        "notWebReady": false,
+        "videoSize": 2147483648,
+        "filename": "fixture.mkv",
+        "proxyHeaders": {
+          "request": {
+            "Authorization": "Bearer secret",
+            "User-Agent": "NuvioFixture"
+          },
+          "response": {
+            "X-Trace": "fixture"
+          }
+        }
+      },
+      "subtitles": [
+        {
+          "id": "sub-en",
+          "label": "English",
+          "lang": "en",
+          "url": "https://cdn.example.test/subtitles/en.vtt",
+          "default": true
+        }
+      ]
+    },
+    {
+      "name": "No playable source"
+    },
+    {
+      "name": "External 720p",
+      "externalUrl": "http://cdn.example.test/external.mp4",
+      "qualityLabel": "720p"
+    }
+  ]
+}

@@ -22,4 +22,8 @@
     <ProjectReference Include="..\..\src\Nuvio.Core\Nuvio.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,38 @@
+{
+  "id": "org.nuvio.fixture",
+  "name": "Fixture Addon",
+  "description": "Safe deterministic addon fixture",
+  "version": "1.2.3",
+  "logo": "/assets/logo.png",
+  "resources": [
+    "stream",
+    {
+      "name": "meta",
+      "types": ["movie", "series"],
+      "idPrefixes": ["tt", "tmdb"]
+    }
+  ],
+  "types": ["movie"],
+  "idPrefixes": ["tt"],
+  "catalogs": [
+    {
+      "type": "movie",
+      "id": "featured",
+      "name": "Featured",
+      "extra": [
+        {
+          "name": "genre",
+          "isRequired": false,
+          "options": ["Action", "Drama"],
+          "optionsLimit": 2
+        }
+      ]
+    }
+  ],
+  "behaviorHints": {
+    "configurable": true,
+    "configurationRequired": false,
+    "adult": false,
+    "p2p": false
+  }
+}

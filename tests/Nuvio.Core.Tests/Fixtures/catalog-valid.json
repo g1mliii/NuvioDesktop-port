@@ -1,0 +1,12 @@
+{
+  "metas": [
+    {
+      "id": "tt0000001",
+      "type": "movie",
+      "name": "Fixture Movie",
+      "poster": "https://images.example.test/poster.jpg",
+      "background": "https://images.example.test/backdrop.jpg",
+      "releaseInfo": "2026"
+    }
+  ]
+}

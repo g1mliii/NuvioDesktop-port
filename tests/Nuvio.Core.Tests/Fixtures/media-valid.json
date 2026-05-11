@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "id": "tt0000002",
+    "type": "series",
+    "name": "Fixture Series",
+    "poster": "https://images.example.test/series-poster.jpg",
+    "background": "https://images.example.test/series-backdrop.jpg",
+    "logo": "https://images.example.test/logo.png",
+    "description": "Fixture metadata entry",
+    "releaseInfo": "2026",
+    "runtime": "45 min",
+    "genres": ["Drama", "Mystery"],
+    "externalRatings": [
+      {
+        "source": "imdb",
+        "value": 8.1
+      }
+    ],
+    "cast": [
+      {
+        "name": "Ada Example",
+        "role": "Lead",
+        "photo": "https://images.example.test/ada.jpg"
+      }
+    ],
+    "productionCompanies": [
+      {
+        "name": "Fixture Studio",
+        "logo": "https://images.example.test/studio.png"
+      }
+    ],
+    "trailers": [
+      {
+        "id": "trailer-1",
+        "key": "abc123",
+        "name": "Trailer",
+        "site": "YouTube",
+        "type": "Trailer",
+        "official": true
+      }
+    ],
+    "links": [
+      {
+        "name": "Homepage",
+        "category": "official",
+        "url": "https://example.test/title"
+      }
+    ],
+    "videos": [
+      {
+        "id": "episode-1",
+        "title": "Pilot",
+        "released": "2026-01-01",
+        "thumbnail": "https://images.example.test/episode.jpg",
+        "season": 1,
+        "episode": 1,
+        "overview": "First episode",
+        "runtime": 45
+      }
+    ]
+  }
+}

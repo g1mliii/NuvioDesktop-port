@@ -2,7 +2,7 @@
 
 Nuvio Desktop is a cross-platform desktop port of Nuvio for Windows, macOS, and Linux. The implementation plan chooses Avalonia + C#/.NET for the app shell, SQLite for local state, and mpv/libmpv for playback.
 
-This repository is currently in Phase 0: repo setup, architecture skeleton, CI, compliance gates, and an empty Avalonia desktop shell.
+This repository has completed the Phase 0 scaffold and now includes the Phase 1 Core behavior-mapping foundation: fixture-backed addon, stream, metadata, progress, and redaction models without live playback or UI feature work.
 
 ## Requirements
 

@@ -19,4 +19,19 @@ public sealed class LogRedactorTests
 
         Assert.Equal("Authorization: <redacted>", redacted);
     }
+
+    [Fact]
+    public void RedactHeaders_OnlyMasksSensitiveHeaders()
+    {
+        var redacted = LogRedactor.RedactHeaders(new Dictionary<string, string>
+        {
+            ["Authorization"] = "Bearer secret",
+            ["Cookie"] = "session=secret",
+            ["User-Agent"] = "NuvioTest"
+        });
+
+        Assert.Equal("<redacted>", redacted["Authorization"]);
+        Assert.Equal("<redacted>", redacted["Cookie"]);
+        Assert.Equal("NuvioTest", redacted["User-Agent"]);
+    }
 }
