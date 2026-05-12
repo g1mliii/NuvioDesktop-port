@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             x:Class="Nuvio.Desktop.Views.PlayerView"
+             x:DataType="vm:PlayerViewModel">
+    <Grid RowDefinitions="*,Auto" Background="#080A0B">
+        <Grid Margin="28">
+            <Border Background="#11181B" BorderBrush="#26343A" BorderThickness="1" CornerRadius="8">
+                <Grid Margin="22">
+                    <StackPanel Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="30" FontWeight="SemiBold" TextAlignment="Center"/>
+                        <TextBlock Text="{Binding StreamTitle}" Foreground="#9BD5D1" FontSize="15" TextAlignment="Center"/>
+                        <TextBlock Text="{Binding Status}" Foreground="#A8B4B6" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Foreground="#FFB4A6" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="680"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Background="#151B1E" BorderBrush="#2B363B" BorderThickness="0,1,0,0" Padding="18">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+                <Button x:Name="PlayPauseButton" Content="Play/Pause" Command="{Binding TogglePlayPauseCommand}" Padding="12,7" CornerRadius="5"/>
+                <Button Grid.Column="1" Content="-10s" Command="{Binding SeekBackwardCommand}" Padding="12,7" CornerRadius="5"/>
+                <Button Grid.Column="2" Content="+10s" Command="{Binding SeekForwardCommand}" Padding="12,7" CornerRadius="5"/>
+                <Button Grid.Column="3" Content="Stop" Command="{Binding StopCommand}" Padding="12,7" CornerRadius="5"/>
+                <Button Grid.Column="4" Content="Fullscreen" Command="{Binding ToggleFullscreenCommand}" Padding="12,7" CornerRadius="5"/>
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PositionLabel}" Foreground="#C8D0D1" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Volume, StringFormat=Vol {0}}" Foreground="#8E9A9E" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Grid.Column="6" Content="Return" Command="{Binding ReturnToBrowseCommand}" Padding="12,7" CornerRadius="5"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

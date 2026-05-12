@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             x:Class="Nuvio.Desktop.Views.HomePageView"
+             x:DataType="vm:HomePageViewModel">
+    <ScrollViewer Padding="26,22">
+        <StackPanel Spacing="22">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Home" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
+                    <TextBlock Text="Fixture rails adapted from the mobile home flow." Foreground="#98A5A8" FontSize="13"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="Fixture data" Foreground="#9BD5D1" VerticalAlignment="Center"/>
+            </Grid>
+
+            <TextBlock Text="Loading home..." IsVisible="{Binding IsLoading}" Foreground="#9BD5D1"/>
+            <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Foreground="#FFB4A6" TextWrapping="Wrap"/>
+            <TextBlock Text="No fixture sections are available." IsVisible="{Binding IsEmpty}" Foreground="#98A5A8"/>
+
+            <ItemsControl ItemsSource="{Binding Sections}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HomeSectionViewModel">
+                        <StackPanel Spacing="10" Margin="0,0,0,20">
+                            <TextBlock Text="{Binding Title}" Foreground="#F1F4F4" FontSize="18" FontWeight="SemiBold"/>
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="12"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PosterCardViewModel">
+                                            <Button x:Name="PosterCard"
+                                                    Width="142"
+                                                    MinHeight="236"
+                                                    Padding="0"
+                                                    CornerRadius="7"
+                                                    Command="{Binding OpenCommand}"
+                                                    CommandParameter="{Binding Item}"
+                                                    Background="#182024"
+                                                    BorderBrush="#2C3940"
+                                                    BorderThickness="1">
+                                                <Grid RowDefinitions="204,Auto">
+                                                    <Border Width="140" Height="204" Background="#26363B" CornerRadius="7,7,0,0">
+                                                        <TextBlock Text="{Binding PosterInitial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="44" FontWeight="SemiBold"/>
+                                                    </Border>
+                                                    <Border Grid.Row="1" Padding="8,7">
+                                                        <StackPanel Spacing="2">
+                                                            <TextBlock Text="{Binding Name}" Foreground="#F2F5F5" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="34"/>
+                                                            <TextBlock Text="{Binding ReleaseInfo}" Foreground="#8E9A9E" FontSize="11"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

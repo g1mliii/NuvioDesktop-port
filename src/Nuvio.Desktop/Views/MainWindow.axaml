@@ -3,76 +3,130 @@
         xmlns:vm="using:Nuvio.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
+        mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="760"
         x:Class="Nuvio.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="Nuvio Desktop"
-        Width="1040"
-        Height="680"
-        MinWidth="760"
-        MinHeight="520">
+        Width="1180"
+        Height="760"
+        MinWidth="820"
+        MinHeight="560">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*" Background="#121417">
-        <Border Grid.Row="0" Background="#191D22" BorderBrush="#2A3038" BorderThickness="0,0,0,1" Padding="24,18">
-            <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="4">
-                    <TextBlock Text="{Binding AppName}" FontSize="24" FontWeight="SemiBold" Foreground="#F4F6F8"/>
-                    <TextBlock Text="{Binding PhaseStatus}" FontSize="13" Foreground="#AAB2BD"/>
-                </StackPanel>
-                <Border Grid.Column="1" Padding="12,6" CornerRadius="4" Background="#24313C" VerticalAlignment="Center">
-                    <TextBlock x:Name="RuntimeIdentifierText" Text="{Binding RuntimeIdentifier}" FontSize="12" Foreground="#D6E7F4"/>
-                </Border>
-            </Grid>
-        </Border>
+    <Window.Styles>
+        <Style Selector="Button.nav-item">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.nav-item:pointerover">
+            <Setter Property="Background" Value="#233036"/>
+        </Style>
+        <Style Selector="Button.nav-item.selected">
+            <Setter Property="Background" Value="#214A4F"/>
+            <Setter Property="BorderBrush" Value="#4B9CA4"/>
+        </Style>
+        <Style Selector="Button.icon-command">
+            <Setter Property="MinWidth" Value="34"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="CornerRadius" Value="5"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="#101315">
+        <Menu Grid.Row="0" Background="#171B1F" Foreground="#E8ECEF">
+            <MenuItem Header="_Browse">
+                <MenuItem Header="_Back" Command="{Binding BackCommand}" InputGesture="{Binding BackKeyGesture}"/>
+                <MenuItem Header="{Binding SearchMenuHeader}" Command="{Binding FocusSearchCommand}" InputGesture="{Binding SearchKeyGesture}"/>
+            </MenuItem>
+            <MenuItem Header="_Playback">
+                <MenuItem Header="_Play / Pause" Command="{Binding Player.TogglePlayPauseCommand}" InputGesture="{Binding PlayPauseKeyGesture}"/>
+                <MenuItem Header="Seek _Back" Command="{Binding Player.SeekBackwardCommand}" InputGesture="{Binding SeekBackwardKeyGesture}"/>
+                <MenuItem Header="Seek _Forward" Command="{Binding Player.SeekForwardCommand}" InputGesture="{Binding SeekForwardKeyGesture}"/>
+                <MenuItem Header="_Fullscreen" Command="{Binding Player.ToggleFullscreenCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Window">
+                <MenuItem Header="{Binding SearchShortcutLabel, StringFormat=Search Shortcut: {0}}" IsEnabled="False"/>
+                <MenuItem Header="{Binding RuntimeIdentifier, StringFormat=Runtime: {0}}" IsEnabled="False"/>
+            </MenuItem>
+        </Menu>
 
         <Grid Grid.Row="1" ColumnDefinitions="220,*">
-            <Border Background="#161A1F" BorderBrush="#252B33" BorderThickness="0,0,1,0" Padding="16">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="Home" Foreground="#F4F6F8" FontSize="14" FontWeight="SemiBold"/>
-                    <TextBlock Text="Search" Foreground="#8F98A3" FontSize="14"/>
-                    <TextBlock Text="Catalog" Foreground="#8F98A3" FontSize="14"/>
-                    <TextBlock Text="Addons" Foreground="#8F98A3" FontSize="14"/>
-                    <TextBlock Text="Player" Foreground="#8F98A3" FontSize="14"/>
-                    <TextBlock Text="Settings" Foreground="#8F98A3" FontSize="14"/>
-                </StackPanel>
+            <Border Background="#15191D" BorderBrush="#273038" BorderThickness="0,0,1,0" Padding="14">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Spacing="4" Margin="2,0,2,18">
+                        <TextBlock Text="{Binding AppName}" Foreground="#F4F7F7" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding PhaseStatus}" Foreground="#9AA7A8" FontSize="12"/>
+                    </StackPanel>
+
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding NavigationItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:NavigationItemViewModel">
+                                <Button Classes="nav-item"
+                                        Classes.selected="{Binding IsSelected}"
+                                        Command="{Binding NavigateCommand}"
+                                        CommandParameter="{Binding Route}">
+                                    <Grid ColumnDefinitions="28,*">
+                                        <Border Width="24" Height="24" CornerRadius="5" Background="#24343A">
+                                            <TextBlock Text="{Binding Glyph}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="12" FontWeight="SemiBold"/>
+                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{Binding Label}" Foreground="#E5EAEB" VerticalAlignment="Center" FontSize="14"/>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
             </Border>
 
-            <Grid Margin="28" RowDefinitions="Auto,Auto,*">
-                <TextBlock Text="mpv setup diagnostics" FontSize="28" FontWeight="SemiBold" Foreground="#F4F6F8"/>
-                <TextBlock Grid.Row="1"
-                           Margin="0,8,0,24"
-                           Text="Nuvio detects the real mpv player binary and keeps MPV Manager as an optional setup helper."
-                           TextWrapping="Wrap"
-                           Foreground="#AAB2BD"
-                           FontSize="14"/>
-
-                <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="18" MaxWidth="940" HorizontalAlignment="Left" VerticalAlignment="Top">
-                    <Border Background="#191D22" BorderBrush="#2A3038" BorderThickness="1" CornerRadius="6" Padding="20">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="Current platform" Foreground="#AAB2BD" FontSize="12"/>
-                            <TextBlock x:Name="PlatformNameText" Text="{Binding PlatformName}" Foreground="#F4F6F8" FontSize="20" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="PlatformDescriptionText" Text="{Binding PlatformDescription}" Foreground="#AAB2BD" TextWrapping="Wrap"/>
+            <Grid Grid.Column="1" RowDefinitions="Auto,*" Background="#111518">
+                <Border Grid.Row="0" Background="#171C20" BorderBrush="#283139" BorderThickness="0,0,0,1" Padding="18,12">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Button x:Name="BackButton"
+                                Classes="icon-command"
+                                Content="‹"
+                                Command="{Binding BackCommand}"
+                                ToolTip.Tip="Back"/>
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="{Binding CurrentRouteLabel}" Foreground="#F2F5F5" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding StatusMessage}" Foreground="#8E9A9E" FontSize="12"/>
                         </StackPanel>
-                    </Border>
+                        <Button Grid.Column="2"
+                                Command="{Binding FocusSearchCommand}"
+                                Padding="12,7"
+                                CornerRadius="5"
+                                ToolTip.Tip="{Binding SearchShortcutLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Search" Foreground="#F2F5F5"/>
+                                <TextBlock Text="{Binding SearchShortcutLabel}" Foreground="#95A8AD"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
 
-                    <Border Grid.Column="1" Background="#191D22" BorderBrush="#2A3038" BorderThickness="1" CornerRadius="6" Padding="20">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="mpv" Foreground="#AAB2BD" FontSize="12"/>
-                            <TextBlock x:Name="MpvStatusText" Text="{Binding MpvStatus}" Foreground="#F4F6F8" FontSize="20" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="MpvVersionText" Text="{Binding MpvVersion}" Foreground="#AAB2BD" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="MpvPathText" Text="{Binding MpvPath}" Foreground="#AAB2BD" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="MpvSourceText" Text="{Binding MpvSource}" Foreground="#D6E7F4" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="MpvPolicyText" Text="{Binding MpvPolicy}" Foreground="#8F98A3" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="MpvMessageText" Text="{Binding MpvMessage}" Foreground="#8F98A3" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                <ContentControl x:Name="RouteHost" Grid.Row="1" Content="{Binding CurrentPage}"/>
             </Grid>
         </Grid>
+
+        <Border Grid.Row="2" Background="#171B1F" BorderBrush="#283139" BorderThickness="0,1,0,0" Padding="14,8">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding MpvMessage}" Foreground="#8F9A9D" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14">
+                    <TextBlock x:Name="PlatformNameText" Text="{Binding PlatformName}" Foreground="#C9D1D4" FontSize="12"/>
+                    <TextBlock x:Name="RuntimeIdentifierText" Text="{Binding RuntimeIdentifier}" Foreground="#C9D1D4" FontSize="12"/>
+                    <TextBlock x:Name="MpvStatusText" Text="{Binding MpvStatus}" Foreground="#9BD5D1" FontSize="12"/>
+                    <TextBlock x:Name="MpvVersionText" Text="{Binding MpvVersion}" Foreground="#C9D1D4" FontSize="12"/>
+                    <TextBlock x:Name="MpvPathText" Text="{Binding MpvPath}" Foreground="#8F9A9D" FontSize="12" MaxWidth="240" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="MpvSourceText" Text="{Binding MpvSource}" Foreground="#8F9A9D" FontSize="12"/>
+                    <TextBlock x:Name="MpvPolicyText" Text="{Binding MpvPolicy}" Foreground="#8F9A9D" FontSize="12" IsVisible="False"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
