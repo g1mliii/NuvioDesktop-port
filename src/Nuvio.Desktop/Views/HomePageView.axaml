@@ -3,22 +3,31 @@
              xmlns:vm="using:Nuvio.Desktop.ViewModels"
              x:Class="Nuvio.Desktop.Views.HomePageView"
              x:DataType="vm:HomePageViewModel">
-    <ScrollViewer Padding="26,22">
-        <StackPanel Spacing="22">
-            <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Home" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
-                    <TextBlock Text="Fixture rails adapted from the mobile home flow." Foreground="#98A5A8" FontSize="13"/>
-                </StackPanel>
-                <TextBlock Grid.Column="1" Text="Fixture data" Foreground="#9BD5D1" VerticalAlignment="Center"/>
-            </Grid>
+    <Grid RowDefinitions="Auto,*" Margin="26,22">
+        <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Home" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="Fixture rails adapted from the mobile home flow." Foreground="#98A5A8" FontSize="13"/>
+            </StackPanel>
+            <TextBlock Grid.Column="1" Text="Fixture data" Foreground="#9BD5D1" VerticalAlignment="Center"/>
+        </Grid>
 
+        <Grid Grid.Row="1" Margin="0,18,0,0">
             <TextBlock Text="Loading home..." IsVisible="{Binding IsLoading}" Foreground="#9BD5D1"/>
             <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Foreground="#FFB4A6" TextWrapping="Wrap"/>
             <TextBlock Text="No fixture sections are available." IsVisible="{Binding IsEmpty}" Foreground="#98A5A8"/>
 
-            <ItemsControl ItemsSource="{Binding Sections}">
-                <ItemsControl.ItemTemplate>
+            <ListBox x:Name="HomeSectionsList"
+                     ItemsSource="{Binding Sections}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="0">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:HomeSectionViewModel">
                         <StackPanel Spacing="10" Margin="0,0,0,20">
                             <TextBlock Text="{Binding Title}" Foreground="#F1F4F4" FontSize="18" FontWeight="SemiBold"/>
@@ -59,8 +68,8 @@
                             </ScrollViewer>
                         </StackPanel>
                     </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
-    </ScrollViewer>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
 </UserControl>

@@ -7,15 +7,16 @@ namespace Nuvio.Desktop.ViewModels;
 
 public sealed class DetailsPageViewModel : ViewModelBase
 {
-    private readonly IDesktopFixtureService _fixtures;
+    private readonly ICatalogDataSource _dataSource;
     private readonly Func<StreamSource, MediaDetails, Task> _playAsync;
     private bool _isLoading;
     private string _errorMessage = string.Empty;
+    private string _providerErrorSummary = string.Empty;
     private MediaDetails? _details;
 
-    public DetailsPageViewModel(IDesktopFixtureService fixtures, Func<StreamSource, MediaDetails, Task> playAsync)
+    public DetailsPageViewModel(ICatalogDataSource dataSource, Func<StreamSource, MediaDetails, Task> playAsync)
     {
-        _fixtures = fixtures;
+        _dataSource = dataSource;
         _playAsync = playAsync;
     }
 
@@ -73,25 +74,43 @@ public sealed class DetailsPageViewModel : ViewModelBase
         private set => SetProperty(ref _errorMessage, value);
     }
 
+    public string ProviderErrorSummary
+    {
+        get => _providerErrorSummary;
+        private set
+        {
+            if (SetProperty(ref _providerErrorSummary, value))
+            {
+                OnPropertyChanged(nameof(HasProviderErrors));
+            }
+        }
+    }
+
+    public bool HasProviderErrors => !string.IsNullOrWhiteSpace(ProviderErrorSummary);
+
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
     public bool IsEmpty => !IsLoading && !HasDetails && !HasError;
 
-    public async Task LoadAsync(string mediaId, CancellationToken cancellationToken)
+    public async Task LoadAsync(string mediaId, string? mediaType, CancellationToken cancellationToken)
     {
         IsLoading = true;
         Details = null;
         Streams.Clear();
         ErrorMessage = string.Empty;
+        ProviderErrorSummary = string.Empty;
         NotifyStreamState();
         OnPropertyChanged(nameof(HasError));
         OnPropertyChanged(nameof(IsEmpty));
 
         try
         {
-            var state = await _fixtures.GetDetailsAsync(mediaId, cancellationToken);
+            var state = await _dataSource.GetDetailsAsync(mediaId, mediaType, cancellationToken);
             Details = state.Details;
             Streams.Clear();
+            ProviderErrorSummary = state.FailedProviders is { Count: > 0 }
+                ? $"{state.FailedProviders.Count} provider(s) returned no streams: {string.Join(", ", state.FailedProviders)}"
+                : string.Empty;
 
             var streamIndex = 0;
             foreach (var stream in state.Streams.Where(stream => stream.HasPlayableSource))
@@ -102,7 +121,8 @@ public sealed class DetailsPageViewModel : ViewModelBase
                 Streams.Add(new StreamRowViewModel(
                     source,
                     description,
-                    new AsyncRelayCommand(() => _playAsync(source, state.Details))));
+                    new AsyncRelayCommand(() => _playAsync(source, state.Details)),
+                    providerName: stream.ProviderName));
             }
 
             NotifyStreamState();
@@ -115,6 +135,7 @@ public sealed class DetailsPageViewModel : ViewModelBase
         {
             Details = null;
             Streams.Clear();
+            ProviderErrorSummary = string.Empty;
             NotifyStreamState();
             ErrorMessage = ex.Message;
         }

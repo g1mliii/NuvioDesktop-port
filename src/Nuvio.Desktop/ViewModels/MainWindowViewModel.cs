@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using Avalonia.Input;
 using CommunityToolkit.Mvvm.Input;
+using Nuvio.Core.Diagnostics;
 using Nuvio.Core.Models;
+using Nuvio.Core.Services;
 using Nuvio.Desktop.Models;
 using Nuvio.Desktop.Services;
 using Nuvio.Platform;
@@ -16,7 +18,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly SearchPageViewModel _searchPage;
     private readonly CatalogPageViewModel _catalogPage;
     private readonly DetailsPageViewModel _detailsPage;
-    private readonly PlaceholderPageViewModel _addonsPage;
+    private readonly ViewModelBase _addonsPage;
     private readonly PlaceholderPageViewModel _settingsPage;
     private readonly CancellationTokenSource _disposeCancellation = new();
     private CancellationTokenSource? _navigationCancellation;
@@ -30,39 +32,30 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private string _mpvMessage = string.Empty;
     private string _statusMessage = "Fixture shell ready";
 
-    public MainWindowViewModel()
-        : this(
-            PlatformInfoProvider.Current(),
-            MpvDiscoveryResult.NotFound("Checking for mpv without blocking app startup."),
-            new DesktopFixtureService(),
-            new ExternalMpvPlayerEngineFactory())
-    {
-    }
+    public static MainWindowViewModel CreateFixture(
+        PlatformInfo? platformInfo = null,
+        MpvDiscoveryResult? mpvDiscovery = null,
+        IDesktopFixtureService? fixtures = null,
+        IPlayerEngineFactory? playerEngineFactory = null) =>
+        new(
+            platformInfo ?? PlatformInfoProvider.Current(),
+            mpvDiscovery ?? MpvDiscoveryResult.NotFound("Checking for mpv without blocking app startup."),
+            new FixtureCatalogDataSource(fixtures ?? new DesktopFixtureService()),
+            addonService: null,
+            playerEngineFactory ?? new ExternalMpvPlayerEngineFactory());
 
-    public MainWindowViewModel(PlatformInfo platformInfo)
-        : this(
-            platformInfo,
-            MpvDiscoveryResult.NotFound("mpv discovery was not supplied."),
-            new DesktopFixtureService(),
-            new ExternalMpvPlayerEngineFactory())
-    {
-    }
-
-    public MainWindowViewModel(PlatformInfo platformInfo, MpvDiscoveryResult mpvDiscovery)
-        : this(
-            platformInfo,
-            mpvDiscovery,
-            new DesktopFixtureService(),
-            new ExternalMpvPlayerEngineFactory())
-    {
-    }
+    private readonly IAsyncDisposable? _servicesOwner;
 
     public MainWindowViewModel(
         PlatformInfo platformInfo,
         MpvDiscoveryResult mpvDiscovery,
-        IDesktopFixtureService fixtures,
-        IPlayerEngineFactory playerEngineFactory)
+        ICatalogDataSource dataSource,
+        IAddonService? addonService,
+        IPlayerEngineFactory playerEngineFactory,
+        IAsyncDisposable? servicesOwner = null,
+        INetworkDiagnostics? addonDiagnostics = null)
     {
+        _servicesOwner = servicesOwner;
         _platformInfo = platformInfo;
         PlatformName = platformInfo.Family.ToString();
         RuntimeIdentifier = platformInfo.RuntimeIdentifier;
@@ -73,17 +66,22 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         FocusSearchCommand = new AsyncRelayCommand(() => NavigateAsync(DesktopRoute.Search));
 
         Player = new PlayerViewModel(playerEngineFactory, GoBackAsync);
-        _homePage = new HomePageViewModel(fixtures, OpenDetailsAsync);
-        _searchPage = new SearchPageViewModel(fixtures, OpenDetailsAsync);
-        _catalogPage = new CatalogPageViewModel(fixtures, OpenDetailsAsync);
-        _detailsPage = new DetailsPageViewModel(fixtures, PlayStreamAsync);
-        _addonsPage = new PlaceholderPageViewModel(
-            "Addons",
-            "Phase 3 keeps addons fixture-only. Live addon install and networking start in Phase 4.");
+        _homePage = new HomePageViewModel(dataSource, OpenDetailsAsync);
+        _searchPage = new SearchPageViewModel(dataSource, OpenDetailsAsync);
+        _catalogPage = new CatalogPageViewModel(dataSource, OpenDetailsAsync);
+        _detailsPage = new DetailsPageViewModel(dataSource, PlayStreamAsync);
+
+        _addonsPage = addonService is null
+            ? new PlaceholderPageViewModel(
+                "Addons",
+                "Live addon management starts in Phase 4. Switch to live mode to install Stremio-compatible addons.")
+            : new AddonsPageViewModel(addonService, addonDiagnostics);
+
         _settingsPage = new PlaceholderPageViewModel(
             "Settings",
             "Desktop settings will grow from the mobile settings model after the fixture shell is stable.");
         _currentPage = _homePage;
+        StatusMessage = dataSource.ModeLabel;
 
         NavigationItems =
         [
@@ -111,7 +109,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public string AppName { get; } = "Nuvio Desktop";
 
-    public string PhaseStatus { get; } = "Phase 3 fixture desktop shell";
+    public string PhaseStatus { get; } = "Phase 4 live addon shell";
 
     public string PlatformName { get; }
 
@@ -289,7 +287,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     private async Task OpenDetailsAsync(CatalogItem item)
     {
-        await NavigateAsync(DesktopRoute.Details(item.Id));
+        await NavigateAsync(DesktopRoute.Details(item.Id, item.Type));
     }
 
     private async Task PlayStreamAsync(StreamSource source, MediaDetails details)
@@ -305,6 +303,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         _navigationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_disposeCancellation.Token);
         var cancellationToken = _navigationCancellation.Token;
 
+        CancelPageOperations(CurrentRoute, route);
         CurrentRoute = route;
         UpdateNavigationSelection();
         StatusMessage = $"Route: {route.Label}";
@@ -315,14 +314,20 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             {
                 case DesktopRouteKind.Home:
                     CurrentPage = _homePage;
-                    await _homePage.LoadAsync(cancellationToken);
+                    if (!_homePage.IsLoaded)
+                    {
+                        await _homePage.LoadAsync(cancellationToken);
+                    }
                     break;
                 case DesktopRouteKind.Search:
                     CurrentPage = _searchPage;
                     break;
                 case DesktopRouteKind.Catalog:
                     CurrentPage = _catalogPage;
-                    await _catalogPage.LoadAsync(cancellationToken);
+                    if (!_catalogPage.IsLoaded)
+                    {
+                        await _catalogPage.LoadAsync(cancellationToken);
+                    }
                     break;
                 case DesktopRouteKind.Details:
                     CurrentPage = _detailsPage;
@@ -331,13 +336,17 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                         throw new InvalidOperationException("Details route requires a media id.");
                     }
 
-                    await _detailsPage.LoadAsync(route.MediaId, cancellationToken);
+                    await _detailsPage.LoadAsync(route.MediaId, route.MediaType, cancellationToken);
                     break;
                 case DesktopRouteKind.Player:
                     CurrentPage = Player;
                     break;
                 case DesktopRouteKind.Addons:
                     CurrentPage = _addonsPage;
+                    if (_addonsPage is AddonsPageViewModel addonsPage)
+                    {
+                        await addonsPage.LoadAsync(cancellationToken);
+                    }
                     break;
                 case DesktopRouteKind.Settings:
                     CurrentPage = _settingsPage;
@@ -357,6 +366,29 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
+    private void CancelPageOperations(DesktopRoute currentRoute, DesktopRoute nextRoute)
+    {
+        if (currentRoute.Kind == nextRoute.Kind)
+        {
+            return;
+        }
+
+        if (currentRoute.Kind == DesktopRouteKind.Search)
+        {
+            _searchPage.CancelPendingSearch();
+        }
+
+        if (currentRoute.Kind == DesktopRouteKind.Catalog)
+        {
+            _catalogPage.CancelPendingRequests();
+        }
+
+        if (currentRoute.Kind == DesktopRouteKind.Addons && _addonsPage is AddonsPageViewModel addonsPage)
+        {
+            addonsPage.CancelPendingOperations();
+        }
+    }
+
     private bool IsSearchShortcut(KeyModifiers modifiers)
     {
         return _platformInfo.Family == PlatformFamily.MacOS
@@ -365,7 +397,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     }
 
     private static bool RoutesEqual(DesktopRoute first, DesktopRoute second) =>
-        first.Kind == second.Kind && string.Equals(first.MediaId, second.MediaId, StringComparison.Ordinal);
+        first.Kind == second.Kind &&
+        string.Equals(first.MediaId, second.MediaId, StringComparison.Ordinal) &&
+        string.Equals(first.MediaType, second.MediaType, StringComparison.Ordinal);
 
     public async ValueTask DisposeAsync()
     {
@@ -379,7 +413,17 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         _navigationCancellation?.Dispose();
         _navigationCancellation = null;
         _searchPage.Dispose();
+        _catalogPage.Dispose();
+        if (_addonsPage is AddonsPageViewModel addonsPage)
+        {
+            addonsPage.Dispose();
+        }
+
         await Player.DisposeAsync();
         _disposeCancellation.Dispose();
+        if (_servicesOwner is not null)
+        {
+            await _servicesOwner.DisposeAsync();
+        }
     }
 }

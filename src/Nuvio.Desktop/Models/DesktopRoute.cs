@@ -11,7 +11,7 @@ public enum DesktopRouteKind
     Player
 }
 
-public sealed record DesktopRoute(DesktopRouteKind Kind, string? MediaId = null)
+public sealed record DesktopRoute(DesktopRouteKind Kind, string? MediaId = null, string? MediaType = null)
 {
     public static DesktopRoute Home { get; } = new(DesktopRouteKind.Home);
     public static DesktopRoute Search { get; } = new(DesktopRouteKind.Search);
@@ -20,7 +20,8 @@ public sealed record DesktopRoute(DesktopRouteKind Kind, string? MediaId = null)
     public static DesktopRoute Settings { get; } = new(DesktopRouteKind.Settings);
     public static DesktopRoute Player { get; } = new(DesktopRouteKind.Player);
 
-    public static DesktopRoute Details(string mediaId) => new(DesktopRouteKind.Details, mediaId);
+    public static DesktopRoute Details(string mediaId, string? mediaType = null) =>
+        new(DesktopRouteKind.Details, mediaId, mediaType);
 
     public string Label => Kind switch
     {

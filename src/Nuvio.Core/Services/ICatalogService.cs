@@ -1,0 +1,38 @@
+using Nuvio.Core.Models;
+
+namespace Nuvio.Core.Services;
+
+public sealed record CatalogPage(
+    string AddonId,
+    string AddonName,
+    string Type,
+    string CatalogId,
+    int Skip,
+    IReadOnlyList<CatalogItem> Items);
+
+public sealed record CatalogRail(
+    string AddonId,
+    string AddonName,
+    string Title,
+    string Type,
+    string CatalogId,
+    IReadOnlyList<CatalogItem> Items);
+
+public interface ICatalogService
+{
+    const int PageSize = 100;
+
+    Task<CatalogPage> BrowseAsync(
+        string addonId,
+        string type,
+        string catalogId,
+        int skip,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CatalogItem>> SearchAsync(
+        string query,
+        IReadOnlyList<string>? types,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CatalogRail>> HomeRailsAsync(CancellationToken cancellationToken);
+}

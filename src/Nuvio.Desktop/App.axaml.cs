@@ -1,10 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
-using Avalonia.Data.Core.Plugins;
-using Avalonia.Threading;
-using System.Linq;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using Nuvio.Desktop.Services;
 using Nuvio.Desktop.ViewModels;
 using Nuvio.Desktop.Views;
 using Nuvio.Platform;
@@ -13,6 +11,9 @@ namespace Nuvio.Desktop;
 
 public partial class App : Application
 {
+    private const string FixtureFlagArg = "--fixture-data";
+    private const string FixtureFlagEnv = "NUVIO_FIXTURE_DATA";
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -22,7 +23,11 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var viewModel = new MainWindowViewModel();
+            var useFixture = ShouldUseFixtureData(desktop.Args);
+            var viewModel = useFixture
+                ? MainWindowViewModel.CreateFixture()
+                : CreateLiveMainWindowViewModel();
+
             desktop.MainWindow = new MainWindow
             {
                 DataContext = viewModel,
@@ -32,6 +37,32 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static bool ShouldUseFixtureData(string[]? args)
+    {
+        if (args is not null && args.Any(arg =>
+            string.Equals(arg, FixtureFlagArg, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        var fromEnv = Environment.GetEnvironmentVariable(FixtureFlagEnv);
+        return string.Equals(fromEnv, "1", StringComparison.Ordinal) ||
+               string.Equals(fromEnv, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static MainWindowViewModel CreateLiveMainWindowViewModel()
+    {
+        var host = DesktopBootstrap.BuildLive(Path.Combine(AppContext.BaseDirectory, "appsettings.json"));
+        return new MainWindowViewModel(
+            PlatformInfoProvider.Current(),
+            MpvDiscoveryResult.NotFound("Checking for mpv without blocking app startup."),
+            host.DataSource,
+            host.AddonService,
+            new ExternalMpvPlayerEngineFactory(),
+            servicesOwner: host,
+            addonDiagnostics: host.Diagnostics);
     }
 
     private static async Task LoadMpvDiscoveryAsync(MainWindowViewModel viewModel)

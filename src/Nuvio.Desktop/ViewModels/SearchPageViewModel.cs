@@ -8,7 +8,7 @@ namespace Nuvio.Desktop.ViewModels;
 public sealed class SearchPageViewModel : ViewModelBase, IDisposable
 {
     private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(150);
-    private readonly IDesktopFixtureService _fixtures;
+    private readonly ICatalogDataSource _dataSource;
     private readonly IAsyncRelayCommand<CatalogItem> _openDetailsCommand;
     private CancellationTokenSource? _searchCancellation;
     private string _searchText = string.Empty;
@@ -18,9 +18,9 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
     private int _searchGeneration;
     private int _isDisposed;
 
-    public SearchPageViewModel(IDesktopFixtureService fixtures, Func<CatalogItem, Task> openDetailsAsync)
+    public SearchPageViewModel(ICatalogDataSource dataSource, Func<CatalogItem, Task> openDetailsAsync)
     {
-        _fixtures = fixtures;
+        _dataSource = dataSource;
         _openDetailsCommand = PosterGridBuilder.CreateOpenCommand(openDetailsAsync);
     }
 
@@ -64,6 +64,17 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
 
     public Task SearchAsync(string query) => SearchAsync(query, TimeSpan.Zero);
 
+    public void CancelPendingSearch()
+    {
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = null;
+        if (Volatile.Read(ref _isDisposed) == 0)
+        {
+            IsLoading = false;
+        }
+    }
+
     private async Task SearchAsync(string query, TimeSpan debounce)
     {
         if (Volatile.Read(ref _isDisposed) == 1)
@@ -100,7 +111,7 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
                 await Task.Delay(debounce, cancellationToken);
             }
 
-            var results = await _fixtures.SearchAsync(query, cancellationToken);
+            var results = await _dataSource.SearchAsync(query, cancellationToken);
             if (generation != _searchGeneration || cancellationToken.IsCancellationRequested)
             {
                 return;
@@ -144,8 +155,6 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _searchCancellation?.Cancel();
-        _searchCancellation?.Dispose();
-        _searchCancellation = null;
+        CancelPendingSearch();
     }
 }

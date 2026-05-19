@@ -30,6 +30,8 @@
 
             <TextBlock Text="No playable streams are available for this fixture." IsVisible="{Binding HasNoStreams}" Foreground="#98A5A8"/>
 
+            <TextBlock Text="{Binding ProviderErrorSummary}" IsVisible="{Binding HasProviderErrors}" Foreground="#E0A87A" FontSize="12" TextWrapping="Wrap"/>
+
             <StackPanel Spacing="10" IsVisible="{Binding HasStreams}">
                 <TextBlock Text="Streams" Foreground="#F1F4F4" FontSize="18" FontWeight="SemiBold"/>
                 <ItemsControl x:Name="StreamRows" ItemsSource="{Binding Streams}">
@@ -39,7 +41,13 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel Spacing="3">
                                         <TextBlock Text="{Binding Title}" Foreground="#F2F5F5" FontSize="15" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding QualityLabel}" Foreground="#9BD5D1" FontSize="12"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding QualityLabel}" Foreground="#9BD5D1" FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasProvider}">
+                                                <TextBlock Text="·" Foreground="#3F4E54" FontSize="12"/>
+                                                <TextBlock Text="{Binding ProviderName}" Foreground="#8EB6B2" FontSize="12"/>
+                                            </StackPanel>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding Description}" Foreground="#98A5A8" FontSize="12" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <Button Grid.Column="1" Content="Play" Command="{Binding PlayCommand}" Padding="16,7" CornerRadius="5"/>

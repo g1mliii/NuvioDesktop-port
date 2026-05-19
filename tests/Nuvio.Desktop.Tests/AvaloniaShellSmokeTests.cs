@@ -5,7 +5,10 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
+using Nuvio.Core.Addons;
+using Nuvio.Core.Diagnostics;
 using Nuvio.Core.Models;
+using Nuvio.Core.Services;
 using Nuvio.Desktop;
 using Nuvio.Desktop.Models;
 using Nuvio.Desktop.Services;
@@ -26,7 +29,7 @@ public sealed class AvaloniaShellSmokeTests
     [Fact]
     public void MainWindowViewModel_DefaultConstructor_DoesNotRunBlockingMpvDiscovery()
     {
-        var viewModel = new MainWindowViewModel();
+        var viewModel = MainWindowViewModel.CreateFixture();
 
         Assert.Equal("Not found", viewModel.MpvStatus);
         Assert.Equal("Not detected", viewModel.MpvPath);
@@ -69,7 +72,7 @@ public sealed class AvaloniaShellSmokeTests
     public async Task Search_CancelsStaleRequest()
     {
         var service = new SlowSearchFixtureService();
-        var search = new SearchPageViewModel(service, _ => Task.CompletedTask);
+        var search = new SearchPageViewModel(new FixtureCatalogDataSource(service), _ => Task.CompletedTask);
 
         var staleSearch = search.SearchAsync("first");
         await service.FirstSearchStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
@@ -289,6 +292,35 @@ public sealed class AvaloniaShellSmokeTests
         });
     }
 
+    [Fact]
+    public async Task MainWindowViewModel_AddonsPageReceivesDiagnostics()
+    {
+        var diagnostics = new NetworkDiagnostics();
+        diagnostics.Record(new NetworkDiagnosticEvent(
+            Timestamp: DateTimeOffset.UtcNow,
+            Kind: NetworkEventKind.Failure,
+            Host: "addons.example.test",
+            StatusCode: 500,
+            DurationMs: 25,
+            AddonId: "addon.test",
+            ResourceKind: "manifest",
+            Message: "manifest failed"));
+        var viewModel = new MainWindowViewModel(
+            new PlatformInfo(PlatformFamily.Windows, "win-x64", "Windows test platform"),
+            MpvDiscoveryResult.NotFound("mpv not supplied"),
+            new EmptyCatalogDataSource(),
+            new NoopAddonService(),
+            new RecordingPlayerEngineFactory(),
+            addonDiagnostics: diagnostics);
+
+        await viewModel.NavigateAsync(DesktopRoute.Addons);
+
+        var addonsPage = Assert.IsType<AddonsPageViewModel>(viewModel.CurrentPage);
+        Assert.Single(addonsPage.RecentEvents);
+        Assert.Equal("addons.example.test", addonsPage.RecentEvents[0].Host);
+        await viewModel.DisposeAsync();
+    }
+
     private static MainWindowViewModel CreateViewModel(
         IDesktopFixtureService? fixtures = null,
         IPlayerEngineFactory? engineFactory = null,
@@ -299,14 +331,14 @@ public sealed class AvaloniaShellSmokeTests
             MpvInstallationSource.CommonLocation,
             "mpv 0.41.0");
 
-        return new MainWindowViewModel(
-            platformInfo ?? new PlatformInfo(
+        return MainWindowViewModel.CreateFixture(
+            platformInfo: platformInfo ?? new PlatformInfo(
                 PlatformFamily.Windows,
                 "win-x64",
                 "Windows test platform"),
-            mpvDiscovery,
-            fixtures ?? new DesktopFixtureService(),
-            engineFactory ?? new RecordingPlayerEngineFactory());
+            mpvDiscovery: mpvDiscovery,
+            fixtures: fixtures ?? new DesktopFixtureService(),
+            playerEngineFactory: engineFactory ?? new RecordingPlayerEngineFactory());
     }
 
     private static StreamSource CreateStreamSource()
@@ -406,6 +438,44 @@ public sealed class AvaloniaShellSmokeTests
 
         public Task<FixtureDetailState> GetDetailsAsync(string mediaId, CancellationToken cancellationToken) =>
             _inner.GetDetailsAsync(mediaId, cancellationToken);
+    }
+
+    private sealed class EmptyCatalogDataSource : ICatalogDataSource
+    {
+        public string ModeLabel => "empty";
+
+        public Task<IReadOnlyList<DesktopHomeRail>> GetHomeRailsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<DesktopHomeRail>>(Array.Empty<DesktopHomeRail>());
+
+        public Task<DesktopCatalogPage> GetCatalogPageAsync(int skip, CancellationToken cancellationToken) =>
+            Task.FromResult(new DesktopCatalogPage(Array.Empty<CatalogItem>(), HasMore: false, NextSkip: 0));
+
+        public Task<IReadOnlyList<CatalogItem>> SearchAsync(string query, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<CatalogItem>>(Array.Empty<CatalogItem>());
+
+        public Task<FixtureDetailState> GetDetailsAsync(string mediaId, string? mediaType, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("not used");
+    }
+
+    private sealed class NoopAddonService : IAddonService
+    {
+        public Task<IReadOnlyList<ManagedAddon>> ListAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ManagedAddon>>(Array.Empty<ManagedAddon>());
+
+        public Task<ManagedAddon> InstallAsync(string rawManifestUrl, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("not used");
+
+        public Task<bool> RemoveAsync(string id, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<ManagedAddon> SetEnabledAsync(string id, bool enabled, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("not used");
+
+        public Task<ManagedAddon> RefreshAsync(string id, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("not used");
+
+        public Task ReorderAsync(IReadOnlyList<string> orderedIds, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class RecordingPlayerEngineFactory : IPlayerEngineFactory

@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             x:Class="Nuvio.Desktop.Views.AddonsPageView"
+             x:DataType="vm:AddonsPageViewModel">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="26,22">
+        <StackPanel Spacing="6">
+            <TextBlock Text="Addons" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
+            <TextBlock Foreground="#98A5A8" FontSize="13"
+                       Text="Install Stremio-compatible manifests. Disabled addons are excluded from search, catalog, and details."/>
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,16,0,12" ColumnDefinitions="*,Auto">
+            <TextBox x:Name="ManifestUrlInput"
+                     Text="{Binding ManifestUrlInput, Mode=TwoWay}"
+                     PlaceholderText="https://addons.example.test/manifest.json"
+                     Background="#0F171B" Foreground="#F2F5F5" BorderBrush="#2C3940" Padding="10,7"/>
+            <Button Grid.Column="1" Content="Install" Margin="10,0,0,0"
+                    Command="{Binding InstallCommand}"
+                    Background="#1F8F87" Foreground="White" Padding="14,7"/>
+        </Grid>
+
+        <Border Grid.Row="2" BorderBrush="#1E2A2E" BorderThickness="1" CornerRadius="8" Background="#0E1518" Padding="10">
+            <Grid RowDefinitions="Auto,*,Auto,140">
+                <TextBlock Text="Installed addons" Foreground="#9BD5D1" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                <TextBlock Grid.Row="1" Text="No addons installed yet." Foreground="#98A5A8"
+                           IsVisible="{Binding !HasAddons}" Margin="2,8"/>
+                <ListBox Grid.Row="1" x:Name="AddonsList" ItemsSource="{Binding Addons}"
+                         Background="Transparent" BorderThickness="0" Padding="0">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AddonListItemViewModel">
+                            <Border Margin="0,4" Padding="12,10" CornerRadius="6"
+                                    Background="#141C20" BorderBrush="#22323A" BorderThickness="1">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Name}" Foreground="#F2F5F5" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding ManifestUrlDisplay}" Foreground="#8E9A9E" FontSize="11"/>
+                                        <TextBlock Text="{Binding LastError}" Foreground="#FFB4A6"
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   IsVisible="{Binding HasError}"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding EnabledLabel}" Foreground="#9BD5D1"
+                                               VerticalAlignment="Center" Margin="12,0"/>
+                                    <Button Grid.Column="2" Content="{Binding ToggleLabel}" Margin="6,0"
+                                            Command="{Binding $parent[ListBox].((vm:AddonsPageViewModel)DataContext).ToggleEnabledCommand}"
+                                            CommandParameter="{Binding}"
+                                            Background="#1A2528" Foreground="#F2F5F5" BorderBrush="#2C3940"/>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                                        <Button Content="Refresh"
+                                                Command="{Binding $parent[ListBox].((vm:AddonsPageViewModel)DataContext).RefreshCommand}"
+                                                CommandParameter="{Binding}"
+                                                Background="#1A2528" Foreground="#F2F5F5" BorderBrush="#2C3940"/>
+                                        <Button Content="Remove"
+                                                Command="{Binding $parent[ListBox].((vm:AddonsPageViewModel)DataContext).RemoveCommand}"
+                                                CommandParameter="{Binding}"
+                                                Background="#3B1A1A" Foreground="#FFB4A6" BorderBrush="#5A2424"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Grid.Row="2" Text="Recent network events" Foreground="#9BD5D1" FontWeight="SemiBold" Margin="2,14,0,6"/>
+                <ListBox Grid.Row="3" x:Name="DiagnosticsList" ItemsSource="{Binding RecentEvents}"
+                         Background="Transparent" BorderThickness="0" Padding="0">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NetworkDiagnosticRowViewModel">
+                            <Border Margin="0,2" Padding="8,5" CornerRadius="4" Background="#141C20" BorderBrush="#1E2A2E" BorderThickness="1">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="{Binding Timestamp}" Foreground="#9BD5D1" FontFamily="Consolas" FontSize="11"/>
+                                    <TextBlock Text="{Binding Kind}" Foreground="#F2F5F5" FontSize="11" Width="60"/>
+                                    <TextBlock Text="{Binding Host}" Foreground="#A8B6BA" FontSize="11"/>
+                                    <TextBlock Text="{Binding ResourceKind}" Foreground="#9BD5D1" FontSize="11" Width="80"/>
+                                    <TextBlock Text="{Binding StatusCode}" Foreground="#A8B6BA" FontSize="11" Width="40"/>
+                                    <TextBlock Text="{Binding Message}" Foreground="#8E9A9E" FontSize="11" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="3" Margin="0,12,0,0" Text="{Binding StatusMessage}" Foreground="#9BD5D1" FontSize="12"/>
+    </Grid>
+</UserControl>

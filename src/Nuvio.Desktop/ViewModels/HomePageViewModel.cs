@@ -7,14 +7,14 @@ namespace Nuvio.Desktop.ViewModels;
 
 public sealed class HomePageViewModel : ViewModelBase
 {
-    private readonly IDesktopFixtureService _fixtures;
+    private readonly ICatalogDataSource _dataSource;
     private readonly IAsyncRelayCommand<CatalogItem> _openDetailsCommand;
     private bool _isLoading;
     private string _errorMessage = string.Empty;
 
-    public HomePageViewModel(IDesktopFixtureService fixtures, Func<CatalogItem, Task> openDetailsAsync)
+    public HomePageViewModel(ICatalogDataSource dataSource, Func<CatalogItem, Task> openDetailsAsync)
     {
-        _fixtures = fixtures;
+        _dataSource = dataSource;
         _openDetailsCommand = PosterGridBuilder.CreateOpenCommand(openDetailsAsync);
     }
 
@@ -36,6 +36,8 @@ public sealed class HomePageViewModel : ViewModelBase
 
     public bool IsEmpty => !IsLoading && Sections.Count == 0 && !HasError;
 
+    public bool IsLoaded => Sections.Count > 0 && !HasError;
+
     public async Task LoadAsync(CancellationToken cancellationToken)
     {
         IsLoading = true;
@@ -45,13 +47,13 @@ public sealed class HomePageViewModel : ViewModelBase
 
         try
         {
-            var sections = await _fixtures.GetHomeSectionsAsync(cancellationToken);
+            var rails = await _dataSource.GetHomeRailsAsync(cancellationToken);
             Sections.Clear();
-            foreach (var section in sections)
+            foreach (var rail in rails)
             {
                 Sections.Add(new HomeSectionViewModel(
-                    section.Title,
-                    PosterGridBuilder.BuildCards(section.Items, _openDetailsCommand)));
+                    rail.Title,
+                    PosterGridBuilder.BuildCards(rail.Items, _openDetailsCommand)));
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
