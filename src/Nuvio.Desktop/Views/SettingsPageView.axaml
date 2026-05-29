@@ -1,0 +1,110 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             x:Class="Nuvio.Desktop.Views.SettingsPageView"
+             x:DataType="vm:SettingsPageViewModel">
+    <ScrollViewer Padding="26,22">
+        <StackPanel Spacing="22" MaxWidth="760">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Settings" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#98A5A8" FontSize="13" TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="Save"
+                        Command="{Binding SaveCommand}"
+                        Padding="16,8"
+                        CornerRadius="5"
+                        VerticalAlignment="Center"/>
+            </Grid>
+
+            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="220,*" RowSpacing="14" ColumnSpacing="22">
+                <TextBlock Text="Theme" Foreground="#E8ECEF" FontSize="14" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ThemeModeCombo"
+                          Grid.Column="1"
+                          ItemsSource="{Binding ThemeOptions}"
+                          SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                          MinWidth="220">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ThemeModeOption">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock Grid.Row="1" Text="Player" Foreground="#E8ECEF" FontSize="14" VerticalAlignment="Center"/>
+                <ComboBox x:Name="PlayerModeCombo"
+                          Grid.Row="1"
+                          Grid.Column="1"
+                          ItemsSource="{Binding PlayerModeOptions}"
+                          SelectedItem="{Binding SelectedPlayerMode, Mode=TwoWay}"
+                          MinWidth="220">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PlayerModeOption">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock Grid.Row="2" Text="Hardware decoding" Foreground="#E8ECEF" FontSize="14" VerticalAlignment="Center"/>
+                <CheckBox x:Name="HardwareDecodingToggle"
+                          Grid.Row="2"
+                          Grid.Column="1"
+                          IsChecked="{Binding HardwareDecodingEnabled, Mode=TwoWay}"
+                          Content="Enabled"/>
+            </Grid>
+
+            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="220,*" RowSpacing="14" ColumnSpacing="22">
+                <TextBlock Text="Initial volume" Foreground="#E8ECEF" FontSize="14" VerticalAlignment="Center"/>
+                <Grid Grid.Column="1" ColumnDefinitions="*,86" ColumnSpacing="12">
+                    <Slider x:Name="InitialVolumeSlider"
+                            Minimum="0"
+                            Maximum="100"
+                            TickFrequency="10"
+                            IsSnapToTickEnabled="True"
+                            Value="{Binding InitialVolume, Mode=TwoWay}"/>
+                    <NumericUpDown x:Name="InitialVolumeInput"
+                                   Grid.Column="1"
+                                   Minimum="0"
+                                   Maximum="100"
+                                   Increment="1"
+                                   Value="{Binding InitialVolume, Mode=TwoWay}"/>
+                </Grid>
+
+                <TextBlock Grid.Row="1" Text="Disk image cache MB" Foreground="#E8ECEF" FontSize="14" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="DiskCacheLimitInput"
+                               Grid.Row="1"
+                               Grid.Column="1"
+                               Minimum="64"
+                               Maximum="500"
+                               Increment="16"
+                               Value="{Binding ImageDiskCacheLimitMb, Mode=TwoWay}"
+                               Width="120"
+                               HorizontalAlignment="Left"/>
+
+                <TextBlock Grid.Row="2" Text="Decoded image entries" Foreground="#E8ECEF" FontSize="14" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="DecodedImageLimitInput"
+                               Grid.Row="2"
+                               Grid.Column="1"
+                               Minimum="16"
+                               Maximum="512"
+                               Increment="8"
+                               Value="{Binding DecodedImageMemoryItemLimit, Mode=TwoWay}"
+                               Width="120"
+                               HorizontalAlignment="Left"/>
+            </Grid>
+
+            <Border BorderBrush="#2C3940" BorderThickness="1,0,0,0" Padding="16,0,0,0">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                    <TextBlock Text="Clear metadata and image cache" Foreground="#C8D0D1" FontSize="14" VerticalAlignment="Center"/>
+                    <Button x:Name="ClearCacheButton"
+                            Grid.Column="1"
+                            Content="Clear cache"
+                            Command="{Binding ClearCacheCommand}"
+                            Padding="14,8"
+                            CornerRadius="5"/>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -12,14 +12,14 @@ public sealed class MetadataService : IMetadataService
     private readonly IAddonRepository _repository;
     private readonly INuvioHttpClient _httpClient;
     private readonly ITmdbClient? _tmdbClient;
-    private readonly MetadataCache _cache;
+    private readonly IMetadataCache _cache;
     private readonly INetworkDiagnostics? _diagnostics;
     private readonly TimeProvider _timeProvider;
 
     public MetadataService(
         IAddonRepository repository,
         INuvioHttpClient httpClient,
-        MetadataCache cache,
+        IMetadataCache cache,
         ITmdbClient? tmdbClient = null,
         INetworkDiagnostics? diagnostics = null,
         TimeProvider? timeProvider = null)

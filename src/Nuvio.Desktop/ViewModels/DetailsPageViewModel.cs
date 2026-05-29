@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.Input;
 using Nuvio.Core.Models;
 using Nuvio.Desktop.Services;
@@ -9,15 +10,22 @@ public sealed class DetailsPageViewModel : ViewModelBase
 {
     private readonly ICatalogDataSource _dataSource;
     private readonly Func<StreamSource, MediaDetails, Task> _playAsync;
+    private readonly IDesktopImageLoader? _imageLoader;
     private bool _isLoading;
     private string _errorMessage = string.Empty;
     private string _providerErrorSummary = string.Empty;
     private MediaDetails? _details;
+    private IImage? _posterImage;
+    private IImage? _backdropImage;
 
-    public DetailsPageViewModel(ICatalogDataSource dataSource, Func<StreamSource, MediaDetails, Task> playAsync)
+    public DetailsPageViewModel(
+        ICatalogDataSource dataSource,
+        Func<StreamSource, MediaDetails, Task> playAsync,
+        IDesktopImageLoader? imageLoader = null)
     {
         _dataSource = dataSource;
         _playAsync = playAsync;
+        _imageLoader = imageLoader;
     }
 
     public ObservableCollection<StreamRowViewModel> Streams { get; } = [];
@@ -55,6 +63,37 @@ public sealed class DetailsPageViewModel : ViewModelBase
     public string PosterUrl => Details?.PosterUrl?.ToString() ?? string.Empty;
 
     public string BackdropUrl => Details?.BackgroundUrl?.ToString() ?? string.Empty;
+
+    public IImage? PosterImage
+    {
+        get => _posterImage;
+        private set
+        {
+            if (SetProperty(ref _posterImage, value))
+            {
+                OnPropertyChanged(nameof(HasPosterImage));
+                OnPropertyChanged(nameof(HasNoPosterImage));
+            }
+        }
+    }
+
+    public IImage? BackdropImage
+    {
+        get => _backdropImage;
+        private set
+        {
+            if (SetProperty(ref _backdropImage, value))
+            {
+                OnPropertyChanged(nameof(HasBackdropImage));
+            }
+        }
+    }
+
+    public bool HasPosterImage => PosterImage is not null;
+
+    public bool HasNoPosterImage => PosterImage is null;
+
+    public bool HasBackdropImage => BackdropImage is not null;
 
     public bool HasDetails => Details is not null;
 
@@ -96,6 +135,8 @@ public sealed class DetailsPageViewModel : ViewModelBase
     {
         IsLoading = true;
         Details = null;
+        PosterImage = null;
+        BackdropImage = null;
         Streams.Clear();
         ErrorMessage = string.Empty;
         ProviderErrorSummary = string.Empty;
@@ -125,6 +166,7 @@ public sealed class DetailsPageViewModel : ViewModelBase
                     providerName: stream.ProviderName));
             }
 
+            await LoadImagesAsync(state.Details, cancellationToken);
             NotifyStreamState();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -134,6 +176,8 @@ public sealed class DetailsPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             Details = null;
+            PosterImage = null;
+            BackdropImage = null;
             Streams.Clear();
             ProviderErrorSummary = string.Empty;
             NotifyStreamState();
@@ -152,5 +196,35 @@ public sealed class DetailsPageViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(HasStreams));
         OnPropertyChanged(nameof(HasNoStreams));
+    }
+
+    private async Task LoadImagesAsync(MediaDetails details, CancellationToken cancellationToken)
+    {
+        if (_imageLoader is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (details.PosterUrl is not null)
+            {
+                PosterImage = await _imageLoader.LoadAsync(details.PosterUrl, cancellationToken);
+            }
+
+            if (details.BackgroundUrl is not null)
+            {
+                BackdropImage = await _imageLoader.LoadAsync(details.BackgroundUrl, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            PosterImage = null;
+            BackdropImage = null;
+        }
     }
 }

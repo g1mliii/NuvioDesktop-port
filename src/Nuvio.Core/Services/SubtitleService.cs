@@ -11,14 +11,14 @@ public sealed class SubtitleService : ISubtitleService
 {
     private readonly IAddonRepository _repository;
     private readonly INuvioHttpClient _httpClient;
-    private readonly MetadataCache _cache;
+    private readonly IMetadataCache _cache;
     private readonly INetworkDiagnostics? _diagnostics;
     private readonly TimeProvider _timeProvider;
 
     public SubtitleService(
         IAddonRepository repository,
         INuvioHttpClient httpClient,
-        MetadataCache cache,
+        IMetadataCache cache,
         INetworkDiagnostics? diagnostics = null,
         TimeProvider? timeProvider = null)
     {

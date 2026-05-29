@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Nuvio.Core.Models;
+using Nuvio.Core.Settings;
 using Nuvio.Desktop.Services;
 using Nuvio.Player;
 
@@ -12,6 +13,8 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private readonly IPlayerEngineFactory _engineFactory;
     private readonly Func<Task> _returnToBrowseAsync;
     private readonly Action<Action> _dispatchToUi;
+    private readonly ISettingsStore? _settingsStore;
+    private readonly IPlayerProgressRecorder? _progressRecorder;
     private readonly object _pendingEventLock = new();
     private IPlayerEngine? _engine;
     private CancellationTokenSource? _lifetime;
@@ -37,11 +40,15 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     public PlayerViewModel(
         IPlayerEngineFactory engineFactory,
         Func<Task> returnToBrowseAsync,
-        Action<Action>? dispatchToUi = null)
+        Action<Action>? dispatchToUi = null,
+        ISettingsStore? settingsStore = null,
+        IPlayerProgressRecorder? progressRecorder = null)
     {
         _engineFactory = engineFactory;
         _returnToBrowseAsync = returnToBrowseAsync;
         _dispatchToUi = dispatchToUi ?? (action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
+        _settingsStore = settingsStore;
+        _progressRecorder = progressRecorder;
         PlayCommand = new AsyncRelayCommand(PlayAsync);
         PauseCommand = new AsyncRelayCommand(PauseAsync);
         TogglePlayPauseCommand = new AsyncRelayCommand(TogglePlayPauseAsync);
@@ -49,7 +56,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         SeekForwardCommand = new AsyncRelayCommand(() => SeekByAsync(TimeSpan.FromSeconds(10)));
         StopCommand = new AsyncRelayCommand(StopAsync);
         ToggleFullscreenCommand = new AsyncRelayCommand(ToggleFullscreenAsync);
-        ReturnToBrowseCommand = new AsyncRelayCommand(_returnToBrowseAsync);
+        ReturnToBrowseCommand = new AsyncRelayCommand(ReturnToBrowseAsync);
     }
 
     public IAsyncRelayCommand PlayCommand { get; }
@@ -186,11 +193,17 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         Duration = null;
         IsPlaying = false;
         IsBuffering = true;
+        _progressRecorder?.Start(details);
 
         try
         {
+            var settings = _settingsStore is null
+                ? DesktopSettings.Default
+                : await _settingsStore.LoadAsync(playbackToken);
+            var playerOptions = ToPlayerOptions(settings);
+            Volume = playerOptions.InitialVolume;
             _engine = _engineFactory.Create();
-            await _engine.InitializeAsync(PlayerOptions.ExternalMpvDefault, playbackToken);
+            await _engine.InitializeAsync(playerOptions, playbackToken);
             _eventsTask = ObserveEventsAsync(_engine, playbackToken, generation);
             await _engine.LoadAsync(source, playbackToken);
             await _engine.PlayAsync(playbackToken);
@@ -226,7 +239,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
             return;
         }
 
-        await _returnToBrowseAsync();
+        await ReturnToBrowseAsync();
     }
 
     private async Task PlayAsync()
@@ -251,6 +264,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         await _engine.PauseAsync(PlaybackToken);
         IsPlaying = false;
         Status = "Paused";
+        await FlushProgressAsync(isEnded: false, PlaybackToken);
     }
 
     private Task TogglePlayPauseAsync() => IsPlaying ? PauseAsync() : PlayAsync();
@@ -283,9 +297,16 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         await _engine.StopAsync(PlaybackToken);
         IsPlaying = false;
         Status = "Stopped";
+        await FlushProgressAsync(isEnded: false, PlaybackToken);
     }
 
     private Task ToggleFullscreenAsync() => SetFullscreenAsync(!IsFullscreenIntent);
+
+    private async Task ReturnToBrowseAsync()
+    {
+        await FlushProgressAsync(isEnded: false, CancellationToken.None);
+        await _returnToBrowseAsync();
+    }
 
     private async Task SetFullscreenAsync(bool isFullscreen)
     {
@@ -323,7 +344,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         {
             await foreach (var playerEvent in engine.Events(cancellationToken))
             {
-                QueuePlayerEvent(playerEvent, cancellationToken, generation);
+                await QueuePlayerEventAsync(playerEvent, cancellationToken, generation);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -342,8 +363,9 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
-    private void QueuePlayerEvent(PlayerEvent playerEvent, CancellationToken cancellationToken, int generation)
+    private async Task QueuePlayerEventAsync(PlayerEvent playerEvent, CancellationToken cancellationToken, int generation)
     {
+        await RecordProgressAsync(playerEvent, cancellationToken).ConfigureAwait(false);
         switch (playerEvent)
         {
             case PlayerEvent.PlaybackPositionChanged position:
@@ -526,17 +548,18 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private async Task ResetEngineAsync()
     {
         _playbackGeneration++;
-        if (_lifetime is not null)
-        {
-            await _lifetime.CancelAsync();
-            _lifetime.Dispose();
-            _lifetime = null;
-        }
-
+        var lifetime = _lifetime;
         var eventsTask = _eventsTask;
         var engine = _engine;
+        _lifetime = null;
         _eventsTask = null;
         _engine = null;
+
+        if (lifetime is not null)
+        {
+            await lifetime.CancelAsync();
+            lifetime.Dispose();
+        }
 
         if (engine is not null)
         {
@@ -557,8 +580,35 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
             }
         }
 
+        await FlushProgressAsync(isEnded: false, CancellationToken.None);
         ClearPendingPositionEvent();
         ClearPendingLogStatus();
+        _progressRecorder?.Reset();
+    }
+
+    private Task RecordProgressAsync(PlayerEvent playerEvent, CancellationToken cancellationToken) =>
+        SafeProgressAsync(recorder => recorder.RecordAsync(playerEvent, cancellationToken), cancellationToken);
+
+    private Task FlushProgressAsync(bool isEnded, CancellationToken cancellationToken) =>
+        SafeProgressAsync(recorder => recorder.FlushAsync(isEnded, cancellationToken), cancellationToken);
+
+    private async Task SafeProgressAsync(Func<IPlayerProgressRecorder, Task> action, CancellationToken cancellationToken)
+    {
+        if (_progressRecorder is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await action(_progressRecorder).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -569,12 +619,24 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
 
         await ResetEngineAsync();
+        _progressRecorder?.Dispose();
     }
 
     private static string FormatTime(TimeSpan value) =>
         value.TotalHours >= 1
             ? value.ToString(@"h\:mm\:ss")
             : value.ToString(@"m\:ss");
+
+    private static PlayerOptions ToPlayerOptions(DesktopSettings settings)
+    {
+        var normalized = settings.Normalize();
+        return PlayerOptions.ExternalMpvDefault with
+        {
+            PreferredEngine = "external-mpv",
+            InitialVolume = normalized.InitialVolume,
+            HardwareDecodingEnabled = normalized.HardwareDecodingEnabled
+        };
+    }
 
     private CancellationToken PlaybackToken => _lifetime?.Token ?? CancellationToken.None;
 }

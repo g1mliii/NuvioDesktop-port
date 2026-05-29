@@ -2,7 +2,7 @@ using Nuvio.Core.Models;
 
 namespace Nuvio.Core.Metadata;
 
-public sealed class MetadataCache
+public sealed class MetadataCache : IMetadataCache
 {
     public static TimeSpan DefaultTtl { get; } = TimeSpan.FromMinutes(30);
     public const int DefaultCapacity = 256;

@@ -33,7 +33,7 @@ public partial class App : Application
                 DataContext = viewModel,
             };
 
-            _ = LoadMpvDiscoveryAsync(viewModel);
+            _ = LoadMpvDiscoverySafelyAsync(viewModel);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -62,7 +62,12 @@ public partial class App : Application
             host.AddonService,
             new ExternalMpvPlayerEngineFactory(),
             servicesOwner: host,
-            addonDiagnostics: host.Diagnostics);
+            addonDiagnostics: host.Diagnostics,
+            settingsStore: host.SettingsStore,
+            cacheMaintenance: host.CacheMaintenance,
+            decodedImageMemoryCache: host.DecodedImageMemoryCache,
+            imageLoader: host.ImageLoader,
+            progressRepository: host.ProgressRepository);
     }
 
     private static async Task LoadMpvDiscoveryAsync(MainWindowViewModel viewModel)
@@ -80,5 +85,18 @@ public partial class App : Application
         }).ConfigureAwait(false);
 
         await Dispatcher.UIThread.InvokeAsync(() => viewModel.ApplyMpvDiscovery(discovery));
+    }
+
+    private static async Task LoadMpvDiscoverySafelyAsync(MainWindowViewModel viewModel)
+    {
+        try
+        {
+            await LoadMpvDiscoveryAsync(viewModel).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var discovery = MpvDiscoveryResult.NotFound($"mpv discovery failed: {ex.Message}");
+            await Dispatcher.UIThread.InvokeAsync(() => viewModel.ApplyMpvDiscovery(discovery));
+        }
     }
 }

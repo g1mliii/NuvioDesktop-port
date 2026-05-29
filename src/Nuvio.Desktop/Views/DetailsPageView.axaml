@@ -9,15 +9,20 @@
             <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Foreground="#FFB4A6" TextWrapping="Wrap"/>
 
             <StackPanel Spacing="16" IsVisible="{Binding HasDetails}">
-                <Border Height="168" Background="#1E2B31" CornerRadius="7" ToolTip.Tip="{Binding BackdropUrl}">
-                    <Grid Margin="18">
-                        <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Bottom"/>
+                <Border Height="168" Background="#1E2B31" CornerRadius="7" ClipToBounds="True" ToolTip.Tip="{Binding BackdropUrl}">
+                    <Grid>
+                        <Image Source="{Binding BackdropImage}" Stretch="UniformToFill" Opacity="0.72" IsVisible="{Binding HasBackdropImage}"/>
+                        <Border Background="#990E1418" IsVisible="{Binding HasBackdropImage}"/>
+                        <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="18"/>
                     </Grid>
                 </Border>
 
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="22">
-                    <Border Width="180" Height="264" Background="#26363B" CornerRadius="7" ToolTip.Tip="{Binding PosterUrl}">
-                        <TextBlock Text="{Binding PosterInitial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="54" FontWeight="SemiBold"/>
+                    <Border Width="180" Height="264" Background="#26363B" CornerRadius="7" ClipToBounds="True" ToolTip.Tip="{Binding PosterUrl}">
+                        <Grid>
+                            <Image Source="{Binding PosterImage}" Stretch="UniformToFill" IsVisible="{Binding HasPosterImage}"/>
+                            <TextBlock Text="{Binding PosterInitial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="54" FontWeight="SemiBold" IsVisible="{Binding HasNoPosterImage}"/>
+                        </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" Spacing="10">
                         <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="32" FontWeight="SemiBold" TextWrapping="Wrap"/>

@@ -3,7 +3,9 @@ using Avalonia.Input;
 using CommunityToolkit.Mvvm.Input;
 using Nuvio.Core.Diagnostics;
 using Nuvio.Core.Models;
+using Nuvio.Core.Progress;
 using Nuvio.Core.Services;
+using Nuvio.Core.Settings;
 using Nuvio.Desktop.Models;
 using Nuvio.Desktop.Services;
 using Nuvio.Platform;
@@ -19,7 +21,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly CatalogPageViewModel _catalogPage;
     private readonly DetailsPageViewModel _detailsPage;
     private readonly ViewModelBase _addonsPage;
-    private readonly PlaceholderPageViewModel _settingsPage;
+    private readonly ViewModelBase _settingsPage;
     private readonly CancellationTokenSource _disposeCancellation = new();
     private CancellationTokenSource? _navigationCancellation;
     private ViewModelBase _currentPage;
@@ -53,7 +55,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         IAddonService? addonService,
         IPlayerEngineFactory playerEngineFactory,
         IAsyncDisposable? servicesOwner = null,
-        INetworkDiagnostics? addonDiagnostics = null)
+        INetworkDiagnostics? addonDiagnostics = null,
+        ISettingsStore? settingsStore = null,
+        ICacheMaintenanceService? cacheMaintenance = null,
+        DecodedImageMemoryCache? decodedImageMemoryCache = null,
+        IDesktopImageLoader? imageLoader = null,
+        IWatchProgressRepository? progressRepository = null)
     {
         _servicesOwner = servicesOwner;
         _platformInfo = platformInfo;
@@ -65,11 +72,18 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         BackCommand = new AsyncRelayCommand(GoBackAsync);
         FocusSearchCommand = new AsyncRelayCommand(() => NavigateAsync(DesktopRoute.Search));
 
-        Player = new PlayerViewModel(playerEngineFactory, GoBackAsync);
+        var progressRecorder = progressRepository is null
+            ? null
+            : new PlayerProgressRecorder(progressRepository);
+        Player = new PlayerViewModel(
+            playerEngineFactory,
+            GoBackAsync,
+            settingsStore: settingsStore,
+            progressRecorder: progressRecorder);
         _homePage = new HomePageViewModel(dataSource, OpenDetailsAsync);
         _searchPage = new SearchPageViewModel(dataSource, OpenDetailsAsync);
         _catalogPage = new CatalogPageViewModel(dataSource, OpenDetailsAsync);
-        _detailsPage = new DetailsPageViewModel(dataSource, PlayStreamAsync);
+        _detailsPage = new DetailsPageViewModel(dataSource, PlayStreamAsync, imageLoader);
 
         _addonsPage = addonService is null
             ? new PlaceholderPageViewModel(
@@ -77,9 +91,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 "Live addon management starts in Phase 4. Switch to live mode to install Stremio-compatible addons.")
             : new AddonsPageViewModel(addonService, addonDiagnostics);
 
-        _settingsPage = new PlaceholderPageViewModel(
-            "Settings",
-            "Desktop settings will grow from the mobile settings model after the fixture shell is stable.");
+        _settingsPage = settingsStore is not null && cacheMaintenance is not null
+            ? new SettingsPageViewModel(settingsStore, cacheMaintenance, decodedImageMemoryCache)
+            : new PlaceholderPageViewModel(
+                "Settings",
+                "Desktop settings will grow from the mobile settings model after the fixture shell is stable.");
         _currentPage = _homePage;
         StatusMessage = dataSource.ModeLabel;
 
@@ -350,6 +366,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                     break;
                 case DesktopRouteKind.Settings:
                     CurrentPage = _settingsPage;
+                    if (_settingsPage is SettingsPageViewModel settingsPage)
+                    {
+                        await settingsPage.LoadAsync(cancellationToken);
+                    }
+
                     break;
             }
         }
