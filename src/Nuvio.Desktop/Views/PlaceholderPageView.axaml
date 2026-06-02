@@ -5,8 +5,8 @@
              x:DataType="vm:PlaceholderPageViewModel">
     <Grid Margin="26,22">
         <StackPanel Spacing="8" MaxWidth="720">
-            <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding Summary}" Foreground="#B8C4C5" FontSize="14" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="28" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" TextWrapping="Wrap"/>
         </StackPanel>
     </Grid>
 </UserControl>

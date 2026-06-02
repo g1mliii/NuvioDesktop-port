@@ -9,7 +9,17 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
   
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Nuvio.Desktop/Styles/Theme.axaml"/>
+                <ResourceInclude Source="avares://Nuvio.Desktop/Styles/Controls.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Nuvio.Desktop/Styles/AppStyles.axaml"/>
     </Application.Styles>
 </Application>

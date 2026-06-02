@@ -23,12 +23,12 @@ jobs:
             rid: linux-x64
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
       - run: dotnet publish src/Nuvio.Desktop/Nuvio.Desktop.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained true --output artifacts/${{ matrix.rid }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: nuvio-desktop-${{ matrix.rid }}
           path: artifacts/${{ matrix.rid }}

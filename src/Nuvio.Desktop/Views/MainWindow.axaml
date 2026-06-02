@@ -26,11 +26,11 @@
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
         <Style Selector="Button.nav-item:pointerover">
-            <Setter Property="Background" Value="#233036"/>
+            <Setter Property="Background" Value="{DynamicResource NavHoverBrush}"/>
         </Style>
         <Style Selector="Button.nav-item.selected">
-            <Setter Property="Background" Value="#214A4F"/>
-            <Setter Property="BorderBrush" Value="#4B9CA4"/>
+            <Setter Property="Background" Value="{DynamicResource NavSelectedBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NavSelectedBorderBrush}"/>
         </Style>
         <Style Selector="Button.icon-command">
             <Setter Property="MinWidth" Value="34"/>
@@ -39,8 +39,14 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto" Background="#101315">
-        <Menu Grid.Row="0" Background="#171B1F" Foreground="#E8ECEF">
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource BackgroundBrush}">
+        <Menu Grid.Row="0" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+              IsVisible="{Binding IsInWindowMenuVisible}">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open media file…" Command="{Binding OpenMediaFileCommand}" InputGesture="{Binding OpenMediaFileKeyGesture}"/>
+                <Separator/>
+                <MenuItem Header="_Quit" Command="{Binding QuitCommand}" InputGesture="{Binding QuitKeyGesture}"/>
+            </MenuItem>
             <MenuItem Header="_Browse">
                 <MenuItem Header="_Back" Command="{Binding BackCommand}" InputGesture="{Binding BackKeyGesture}"/>
                 <MenuItem Header="{Binding SearchMenuHeader}" Command="{Binding FocusSearchCommand}" InputGesture="{Binding SearchKeyGesture}"/>
@@ -49,7 +55,9 @@
                 <MenuItem Header="_Play / Pause" Command="{Binding Player.TogglePlayPauseCommand}" InputGesture="{Binding PlayPauseKeyGesture}"/>
                 <MenuItem Header="Seek _Back" Command="{Binding Player.SeekBackwardCommand}" InputGesture="{Binding SeekBackwardKeyGesture}"/>
                 <MenuItem Header="Seek _Forward" Command="{Binding Player.SeekForwardCommand}" InputGesture="{Binding SeekForwardKeyGesture}"/>
-                <MenuItem Header="_Fullscreen" Command="{Binding Player.ToggleFullscreenCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Fullscreen" Command="{Binding ToggleFullscreenCommand}" InputGesture="{Binding FullscreenKeyGesture}"/>
             </MenuItem>
             <MenuItem Header="_Window">
                 <MenuItem Header="{Binding SearchShortcutLabel, StringFormat=Search Shortcut: {0}}" IsEnabled="False"/>
@@ -57,12 +65,18 @@
             </MenuItem>
         </Menu>
 
-        <Grid Grid.Row="1" ColumnDefinitions="220,*">
-            <Border Background="#15191D" BorderBrush="#273038" BorderThickness="0,0,1,0" Padding="14">
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+            <Border x:Name="SidebarBorder"
+                    Width="{Binding SidebarWidth}"
+                    Background="{DynamicResource SurfaceAltBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
+                    BorderThickness="0,0,1,0"
+                    Padding="14"
+                    IsVisible="{Binding IsChromeVisible}">
                 <Grid RowDefinitions="Auto,*">
-                    <StackPanel Spacing="4" Margin="2,0,2,18">
-                        <TextBlock Text="{Binding AppName}" Foreground="#F4F7F7" FontSize="22" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding PhaseStatus}" Foreground="#9AA7A8" FontSize="12"/>
+                    <StackPanel Spacing="4" Margin="2,0,2,18" IsVisible="{Binding IsSidebarExpanded}">
+                        <TextBlock Text="{Binding AppName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding PhaseStatus}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
                     </StackPanel>
 
                     <ItemsControl Grid.Row="1" ItemsSource="{Binding NavigationItems}">
@@ -71,12 +85,15 @@
                                 <Button Classes="nav-item"
                                         Classes.selected="{Binding IsSelected}"
                                         Command="{Binding NavigateCommand}"
-                                        CommandParameter="{Binding Route}">
+                                        CommandParameter="{Binding Route}"
+                                        AutomationProperties.Name="{Binding Label}"
+                                        ToolTip.Tip="{Binding Label}">
                                     <Grid ColumnDefinitions="28,*">
-                                        <Border Width="24" Height="24" CornerRadius="5" Background="#24343A">
-                                            <TextBlock Text="{Binding Glyph}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="12" FontWeight="SemiBold"/>
+                                        <Border Width="24" Height="24" CornerRadius="5" Background="{DynamicResource NavGlyphBackgroundBrush}">
+                                            <TextBlock Text="{Binding Glyph}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
                                         </Border>
-                                        <TextBlock Grid.Column="1" Text="{Binding Label}" Foreground="#E5EAEB" VerticalAlignment="Center" FontSize="14"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Label}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" FontSize="14"
+                                                   IsVisible="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).IsSidebarExpanded, FallbackValue=true}"/>
                                     </Grid>
                                 </Button>
                             </DataTemplate>
@@ -85,46 +102,55 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Column="1" RowDefinitions="Auto,*" Background="#111518">
-                <Border Grid.Row="0" Background="#171C20" BorderBrush="#283139" BorderThickness="0,0,0,1" Padding="18,12">
+            <Grid Grid.Column="1" RowDefinitions="Auto,*" Background="{DynamicResource BackgroundAltBrush}">
+                <Border x:Name="TopBar" Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="0,0,0,1" Padding="18,12"
+                        IsVisible="{Binding IsChromeVisible}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                         <Button x:Name="BackButton"
                                 Classes="icon-command"
+                                Classes.tv-focus="{Binding IsTvLayout}"
                                 Content="‹"
                                 Command="{Binding BackCommand}"
+                                AutomationProperties.Name="Back"
+                                TabIndex="0"
                                 ToolTip.Tip="Back"/>
                         <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="{Binding CurrentRouteLabel}" Foreground="#F2F5F5" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding StatusMessage}" Foreground="#8E9A9E" FontSize="12"/>
+                            <TextBlock Text="{Binding CurrentRouteLabel}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
                         </StackPanel>
                         <Button Grid.Column="2"
+                                x:Name="SearchButton"
+                                Classes.tv-focus="{Binding IsTvLayout}"
                                 Command="{Binding FocusSearchCommand}"
+                                AutomationProperties.Name="Search"
+                                TabIndex="1"
                                 Padding="12,7"
                                 CornerRadius="5"
                                 ToolTip.Tip="{Binding SearchShortcutLabel}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="Search" Foreground="#F2F5F5"/>
-                                <TextBlock Text="{Binding SearchShortcutLabel}" Foreground="#95A8AD"/>
+                                <TextBlock Text="Search" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding SearchShortcutLabel}" Foreground="{DynamicResource TextMutedBrush}"/>
                             </StackPanel>
                         </Button>
                     </Grid>
                 </Border>
 
-                <ContentControl x:Name="RouteHost" Grid.Row="1" Content="{Binding CurrentPage}"/>
+                <ContentControl x:Name="RouteHost" Grid.Row="1" Content="{Binding CurrentPage}" TabIndex="2"/>
             </Grid>
         </Grid>
 
-        <Border Grid.Row="2" Background="#171B1F" BorderBrush="#283139" BorderThickness="0,1,0,0" Padding="14,8">
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="0,1,0,0" Padding="14,8"
+                IsVisible="{Binding IsChromeVisible}">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="{Binding MpvMessage}" Foreground="#8F9A9D" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="{Binding MpvMessage}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" TextTrimming="CharacterEllipsis"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14">
-                    <TextBlock x:Name="PlatformNameText" Text="{Binding PlatformName}" Foreground="#C9D1D4" FontSize="12"/>
-                    <TextBlock x:Name="RuntimeIdentifierText" Text="{Binding RuntimeIdentifier}" Foreground="#C9D1D4" FontSize="12"/>
-                    <TextBlock x:Name="MpvStatusText" Text="{Binding MpvStatus}" Foreground="#9BD5D1" FontSize="12"/>
-                    <TextBlock x:Name="MpvVersionText" Text="{Binding MpvVersion}" Foreground="#C9D1D4" FontSize="12"/>
-                    <TextBlock x:Name="MpvPathText" Text="{Binding MpvPath}" Foreground="#8F9A9D" FontSize="12" MaxWidth="240" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="MpvSourceText" Text="{Binding MpvSource}" Foreground="#8F9A9D" FontSize="12"/>
-                    <TextBlock x:Name="MpvPolicyText" Text="{Binding MpvPolicy}" Foreground="#8F9A9D" FontSize="12" IsVisible="False"/>
+                    <TextBlock x:Name="PlatformNameText" Text="{Binding PlatformName}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock x:Name="RuntimeIdentifierText" Text="{Binding RuntimeIdentifier}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock x:Name="MpvStatusText" Text="{Binding MpvStatus}" Foreground="{DynamicResource AccentBrush}" FontSize="12"/>
+                    <TextBlock x:Name="MpvVersionText" Text="{Binding MpvVersion}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock x:Name="MpvPathText" Text="{Binding MpvPath}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" MaxWidth="240" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="MpvSourceText" Text="{Binding MpvSource}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
+                    <TextBlock x:Name="MpvPolicyText" Text="{Binding MpvPolicy}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" IsVisible="False"/>
                 </StackPanel>
             </Grid>
         </Border>

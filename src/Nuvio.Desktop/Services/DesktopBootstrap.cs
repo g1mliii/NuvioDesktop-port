@@ -26,6 +26,7 @@ public sealed class DesktopServiceHost : IAsyncDisposable
         ICatalogDataSource dataSource,
         IAddonService addonService,
         INetworkDiagnostics diagnostics,
+        DesktopSettings? initialSettings = null,
         ISettingsStore? settingsStore = null,
         ICacheMaintenanceService? cacheMaintenance = null,
         DecodedImageMemoryCache? decodedImageMemoryCache = null,
@@ -37,6 +38,7 @@ public sealed class DesktopServiceHost : IAsyncDisposable
         DataSource = dataSource;
         AddonService = addonService;
         Diagnostics = diagnostics;
+        InitialSettings = (initialSettings ?? DesktopSettings.Default).Normalize();
         SettingsStore = settingsStore;
         CacheMaintenance = cacheMaintenance;
         DecodedImageMemoryCache = decodedImageMemoryCache;
@@ -49,6 +51,8 @@ public sealed class DesktopServiceHost : IAsyncDisposable
     public IAddonService AddonService { get; }
 
     public INetworkDiagnostics Diagnostics { get; }
+
+    public DesktopSettings InitialSettings { get; }
 
     public ISettingsStore? SettingsStore { get; }
 
@@ -120,6 +124,7 @@ public static class DesktopBootstrap
             dataSource,
             addonService,
             diagnostics,
+            settings,
             settingsStore,
             cacheMaintenance,
             decodedImageCache,

@@ -9,9 +9,11 @@ public sealed class SettingsPageViewModel : ViewModelBase
     private readonly ISettingsStore _settingsStore;
     private readonly ICacheMaintenanceService _cacheMaintenance;
     private readonly DecodedImageMemoryCache? _decodedImageMemoryCache;
+    private readonly IThemeController? _themeController;
     private ThemeModeOption _selectedTheme;
     private PlayerModeOption _selectedPlayerMode;
     private bool _hardwareDecodingEnabled;
+    private bool _tvFocusMode;
     private int _initialVolume;
     private decimal _imageDiskCacheLimitMb;
     private int _decodedImageMemoryItemLimit;
@@ -22,11 +24,13 @@ public sealed class SettingsPageViewModel : ViewModelBase
     public SettingsPageViewModel(
         ISettingsStore settingsStore,
         ICacheMaintenanceService cacheMaintenance,
-        DecodedImageMemoryCache? decodedImageMemoryCache = null)
+        DecodedImageMemoryCache? decodedImageMemoryCache = null,
+        IThemeController? themeController = null)
     {
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         _cacheMaintenance = cacheMaintenance ?? throw new ArgumentNullException(nameof(cacheMaintenance));
         _decodedImageMemoryCache = decodedImageMemoryCache;
+        _themeController = themeController;
         ThemeOptions =
         [
             new ThemeModeOption("System", ThemeMode.System),
@@ -41,6 +45,7 @@ public sealed class SettingsPageViewModel : ViewModelBase
         _selectedTheme = ThemeOptions[0];
         _selectedPlayerMode = PlayerModeOptions[0];
         _hardwareDecodingEnabled = DesktopSettings.Default.HardwareDecodingEnabled;
+        _tvFocusMode = DesktopSettings.Default.TvFocusMode;
         _initialVolume = DesktopSettings.Default.InitialVolume;
         _imageDiskCacheLimitMb = BytesToMegabytes(DesktopSettings.Default.ImageDiskCacheLimitBytes);
         _decodedImageMemoryItemLimit = DesktopSettings.Default.DecodedImageMemoryItemLimit;
@@ -60,7 +65,14 @@ public sealed class SettingsPageViewModel : ViewModelBase
     public ThemeModeOption SelectedTheme
     {
         get => _selectedTheme;
-        set => SetProperty(ref _selectedTheme, value);
+        set
+        {
+            if (SetProperty(ref _selectedTheme, value) && value is not null)
+            {
+                // Re-theme the UI immediately so the choice is visible before the user saves.
+                _themeController?.Apply(value.Value);
+            }
+        }
     }
 
     public PlayerModeOption SelectedPlayerMode
@@ -73,6 +85,21 @@ public sealed class SettingsPageViewModel : ViewModelBase
     {
         get => _hardwareDecodingEnabled;
         set => SetProperty(ref _hardwareDecodingEnabled, value);
+    }
+
+    /// <summary>Raised when the persisted TV focus mode changes so the shell can switch layout immediately.</summary>
+    public event Action<bool>? TvFocusModeChanged;
+
+    public bool TvFocusMode
+    {
+        get => _tvFocusMode;
+        set
+        {
+            if (SetProperty(ref _tvFocusMode, value))
+            {
+                TvFocusModeChanged?.Invoke(value);
+            }
+        }
     }
 
     public int InitialVolume
@@ -139,6 +166,7 @@ public sealed class SettingsPageViewModel : ViewModelBase
         {
             var settings = BuildSettings();
             await _settingsStore.SaveAsync(settings, CancellationToken.None);
+            _themeController?.Apply(settings.Theme);
             _decodedImageMemoryCache?.SetLimit(settings.DecodedImageMemoryItemLimit);
             await _cacheMaintenance.UpdateDiskCacheLimitAsync(settings.ImageDiskCacheLimitBytes, CancellationToken.None);
             StatusMessage = "Settings saved";
@@ -169,6 +197,7 @@ public sealed class SettingsPageViewModel : ViewModelBase
         SelectedTheme = ThemeOptions.First(option => option.Value == settings.Theme);
         SelectedPlayerMode = PlayerModeOptions.FirstOrDefault(option => option.Value == settings.PlayerMode) ?? PlayerModeOptions[0];
         HardwareDecodingEnabled = settings.HardwareDecodingEnabled;
+        TvFocusMode = settings.TvFocusMode;
         InitialVolume = settings.InitialVolume;
         ImageDiskCacheLimitMb = BytesToMegabytes(settings.ImageDiskCacheLimitBytes);
         DecodedImageMemoryItemLimit = settings.DecodedImageMemoryItemLimit;
@@ -182,7 +211,8 @@ public sealed class SettingsPageViewModel : ViewModelBase
             HardwareDecodingEnabled,
             MegabytesToBytes(ImageDiskCacheLimitMb),
             DecodedImageMemoryItemLimit,
-            DesktopSettings.DefaultMetadataCacheTtl).Normalize();
+            DesktopSettings.DefaultMetadataCacheTtl,
+            TvFocusMode).Normalize();
 
     private static decimal BytesToMegabytes(long bytes) =>
         decimal.Round(bytes / 1024m / 1024m, 0, MidpointRounding.AwayFromZero);

@@ -20,12 +20,14 @@ public sealed record DesktopSettings(
     bool HardwareDecodingEnabled,
     long ImageDiskCacheLimitBytes,
     int DecodedImageMemoryItemLimit,
-    TimeSpan MetadataCacheTtl)
+    TimeSpan MetadataCacheTtl,
+    bool TvFocusMode = false)
 {
     public const int DefaultInitialVolume = 80;
     public const bool DefaultHardwareDecodingEnabled = true;
     public const long DefaultImageDiskCacheLimitBytes = 500L * 1024L * 1024L;
     public const int DefaultDecodedImageMemoryItemLimit = 128;
+    public const bool DefaultTvFocusMode = false;
     public static readonly TimeSpan DefaultMetadataCacheTtl = TimeSpan.FromMinutes(30);
 
     public static DesktopSettings Default { get; } = new(
@@ -35,7 +37,8 @@ public sealed record DesktopSettings(
         DefaultHardwareDecodingEnabled,
         DefaultImageDiskCacheLimitBytes,
         DefaultDecodedImageMemoryItemLimit,
-        DefaultMetadataCacheTtl);
+        DefaultMetadataCacheTtl,
+        DefaultTvFocusMode);
 
     public DesktopSettings Normalize() => this with
     {

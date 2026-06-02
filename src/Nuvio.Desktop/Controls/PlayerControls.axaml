@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             x:Class="Nuvio.Desktop.Controls.PlayerControls"
+             x:DataType="vm:PlayerViewModel">
+    <!-- Shared player control bar, reused by the full player and the compact mini-player. -->
+    <Border Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderStrongBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="18">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="10">
+            <Button x:Name="PlayPauseButton"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="Play/Pause"
+                    Command="{Binding TogglePlayPauseCommand}"
+                    AutomationProperties.Name="Play or pause"
+                    TabIndex="0"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+            <Button Grid.Column="1"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="-10s"
+                    Command="{Binding SeekBackwardCommand}"
+                    AutomationProperties.Name="Seek backward 10 seconds"
+                    TabIndex="1"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+            <Button Grid.Column="2"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="+10s"
+                    Command="{Binding SeekForwardCommand}"
+                    AutomationProperties.Name="Seek forward 10 seconds"
+                    TabIndex="2"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+            <Button Grid.Column="3"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="Stop"
+                    Command="{Binding StopCommand}"
+                    AutomationProperties.Name="Stop playback"
+                    TabIndex="3"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+            <Button Grid.Column="4"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="Fullscreen"
+                    Command="{Binding ToggleFullscreenCommand}"
+                    AutomationProperties.Name="Toggle fullscreen"
+                    TabIndex="4"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="{Binding PositionLabel}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Volume, StringFormat=Vol {0}}" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button x:Name="MiniModeButton"
+                    Grid.Column="6"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="Mini"
+                    Command="{Binding ToggleMiniModeCommand}"
+                    AutomationProperties.Name="Toggle mini player"
+                    TabIndex="5"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+            <Button x:Name="ReturnButton"
+                    Grid.Column="7"
+                    Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                    Content="Return"
+                    Command="{Binding ReturnToBrowseCommand}"
+                    AutomationProperties.Name="Return to browsing"
+                    TabIndex="6"
+                    Padding="12,7"
+                    CornerRadius="5"/>
+        </Grid>
+    </Border>
+</UserControl>

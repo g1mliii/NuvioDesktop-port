@@ -1,0 +1,90 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Nuvio.Desktop.Controls">
+    <!-- Phase 7 shared control templates. All visuals consume design tokens via DynamicResource. -->
+
+    <ControlTheme x:Key="{x:Type controls:StateOverlay}" TargetType="controls:StateOverlay">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <TextBlock Text="{TemplateBinding LoadingMessage}"
+                               IsVisible="{TemplateBinding IsLoading}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{TemplateBinding EmptyMessage}"
+                               IsVisible="{TemplateBinding IsEmpty}"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                    <StackPanel IsVisible="{TemplateBinding IsError}" Spacing="8">
+                        <TextBlock Text="{TemplateBinding ErrorMessage}"
+                                   Foreground="{DynamicResource ErrorBrush}"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Text="{TemplateBinding Hint}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding Hint, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <Button x:Name="RetryButton"
+                                Content="{TemplateBinding RetryLabel}"
+                                Command="{TemplateBinding RetryCommand}"
+                                AutomationProperties.Name="Retry"
+                                HorizontalAlignment="Left"
+                                Padding="14,6"
+                                CornerRadius="5"
+                                IsVisible="{Binding RetryCommand, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type controls:PosterCard}" TargetType="controls:PosterCard">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Width="{TemplateBinding CardWidth}"
+                        Height="{TemplateBinding CardHeight}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        ClipToBounds="True">
+                    <Grid RowDefinitions="*,Auto">
+                        <Border Background="{DynamicResource SurfaceHighlightBrush}" CornerRadius="7,7,0,0">
+                            <TextBlock Text="{TemplateBinding Initial}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       FontSize="44"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                        <Border Grid.Row="1" Padding="8,7">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{TemplateBinding Title}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           MaxHeight="34"/>
+                                <TextBlock Text="{TemplateBinding Subtitle}"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           FontSize="11"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentMutedBrush}"/>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

@@ -1,5 +1,6 @@
 using System.Net.Http;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Nuvio.Core.Net;
 using Nuvio.Data.Images;
 
@@ -21,16 +22,22 @@ public sealed class CachedImageLoader : IDesktopImageLoader
         _decodedCache = decodedCache ?? throw new ArgumentNullException(nameof(decodedCache));
     }
 
-    public async Task<IImage?> LoadAsync(Uri sourceUrl, CancellationToken cancellationToken)
+    public async Task<IImage?> LoadAsync(Uri sourceUrl, int decodePixelWidth, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sourceUrl);
         var entry = await _diskCache.GetAsync(sourceUrl, cancellationToken).ConfigureAwait(false)
             ?? await DownloadAsync(sourceUrl, cancellationToken).ConfigureAwait(false);
 
+        // Decode width is part of the cache key so the poster (small) and backdrop (large) decodes of the
+        // same source URL don't collide, and a full-resolution decode is never silently reused for a tile.
+        var cacheKey = decodePixelWidth > 0 ? $"{entry.CacheKey}@w{decodePixelWidth}" : entry.CacheKey;
         return await _decodedCache.GetOrAddAsync(
-            entry.CacheKey,
+            cacheKey,
             token => Task.FromResult<Stream>(File.OpenRead(entry.FilePath)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            decode: decodePixelWidth > 0
+                ? stream => Bitmap.DecodeToWidth(stream, decodePixelWidth)
+                : null).ConfigureAwait(false);
     }
 
     private async Task<DiskImageCacheEntry> DownloadAsync(Uri sourceUrl, CancellationToken cancellationToken)

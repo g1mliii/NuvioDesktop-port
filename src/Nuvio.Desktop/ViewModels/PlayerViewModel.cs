@@ -36,6 +36,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private bool _isBuffering;
     private bool _isAvailable;
     private bool _isFullscreenIntent;
+    private bool _isMiniMode;
     private TimeSpan _position = TimeSpan.Zero;
     private TimeSpan? _duration;
     private int _volume = PlayerOptions.ExternalMpvDefault.InitialVolume;
@@ -61,6 +62,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         StopCommand = new AsyncRelayCommand(StopAsync);
         ToggleFullscreenCommand = new AsyncRelayCommand(ToggleFullscreenAsync);
         ReturnToBrowseCommand = new AsyncRelayCommand(ReturnToBrowseAsync);
+        ToggleMiniModeCommand = new AsyncRelayCommand(ToggleMiniModeAsync);
     }
 
     public IAsyncRelayCommand PlayCommand { get; }
@@ -78,6 +80,8 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     public IAsyncRelayCommand ToggleFullscreenCommand { get; }
 
     public IAsyncRelayCommand ReturnToBrowseCommand { get; }
+
+    public IAsyncRelayCommand ToggleMiniModeCommand { get; }
 
     public string Title
     {
@@ -134,6 +138,25 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         get => _isFullscreenIntent;
         private set => SetProperty(ref _isFullscreenIntent, value);
     }
+
+    /// <summary>
+    /// When true the player renders as a compact docked surface so the user can keep playback alive while
+    /// browsing. This is a layout-only flag — the same engine instance keeps playing (the "one active player
+    /// instance" invariant holds).
+    /// </summary>
+    public bool IsMiniMode
+    {
+        get => _isMiniMode;
+        private set
+        {
+            if (SetProperty(ref _isMiniMode, value))
+            {
+                OnPropertyChanged(nameof(IsFullPlayer));
+            }
+        }
+    }
+
+    public bool IsFullPlayer => !IsMiniMode;
 
     public TimeSpan Position
     {
@@ -502,14 +525,37 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
 
     private Task ToggleFullscreenAsync() => SetFullscreenAsync(!IsFullscreenIntent);
 
+    private async Task ToggleMiniModeAsync()
+    {
+        IsMiniMode = !IsMiniMode;
+        // Leaving mini mode while fullscreen-intent lingers would be contradictory; mini and fullscreen are
+        // mutually exclusive layouts, so dropping into mini cancels any fullscreen intent.
+        if (IsMiniMode && IsFullscreenIntent)
+        {
+            await SetFullscreenAsync(false);
+        }
+    }
+
     private async Task ReturnToBrowseAsync()
     {
         await FlushProgressAsync(isEnded: false, CancellationToken.None);
         await _returnToBrowseAsync();
     }
 
+    /// <summary>Clears fullscreen intent without leaving the player. Used when the shell navigates away from
+    /// the player route so window-level fullscreen and <see cref="IsFullscreenIntent"/> never desync.</summary>
+    public Task ExitFullscreenAsync() =>
+        IsFullscreenIntent ? SetFullscreenAsync(false) : Task.CompletedTask;
+
     private async Task SetFullscreenAsync(bool isFullscreen)
     {
+        // Fullscreen and mini are mutually exclusive layouts; entering fullscreen drops mini mode (the reverse
+        // is handled in ToggleMiniMode). Enforced here so every entry path into fullscreen stays consistent.
+        if (isFullscreen && IsMiniMode)
+        {
+            IsMiniMode = false;
+        }
+
         if (_engine is not null)
         {
             await _engine.SetFullscreenAsync(isFullscreen, PlaybackToken);
@@ -796,6 +842,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         _engine = null;
         DetachRenderFailureHandler();
         VideoSource = null;
+        IsMiniMode = false;
         ClearFallbackDiagnosticStatus();
 
         if (lifetime is not null)

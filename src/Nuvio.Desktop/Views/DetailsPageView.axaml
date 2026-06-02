@@ -1,61 +1,67 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             xmlns:controls="using:Nuvio.Desktop.Controls"
              x:Class="Nuvio.Desktop.Views.DetailsPageView"
              x:DataType="vm:DetailsPageViewModel">
     <ScrollViewer Padding="26,22">
         <StackPanel Spacing="18">
-            <TextBlock Text="Loading details..." IsVisible="{Binding IsLoading}" Foreground="#9BD5D1"/>
-            <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Foreground="#FFB4A6" TextWrapping="Wrap"/>
+            <controls:StateOverlay IsLoading="{Binding IsLoading}"
+                                   IsError="{Binding HasError}"
+                                   ErrorMessage="{Binding ErrorMessage}"
+                                   LoadingMessage="Loading details…"
+                                   Hint="If details fail to load in live mode, the metadata addon or TMDB lookup may be unreachable — check your network and addon settings."/>
 
             <StackPanel Spacing="16" IsVisible="{Binding HasDetails}">
-                <Border Height="168" Background="#1E2B31" CornerRadius="7" ClipToBounds="True" ToolTip.Tip="{Binding BackdropUrl}">
+                <Border Height="168" Background="{DynamicResource PlayerStageBrush}" CornerRadius="7" ClipToBounds="True" ToolTip.Tip="{Binding BackdropUrl}">
                     <Grid>
                         <Image Source="{Binding BackdropImage}" Stretch="UniformToFill" Opacity="0.72" IsVisible="{Binding HasBackdropImage}"/>
-                        <Border Background="#990E1418" IsVisible="{Binding HasBackdropImage}"/>
-                        <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="18"/>
+                        <Border Background="{DynamicResource BackdropScrimBrush}" IsVisible="{Binding HasBackdropImage}"/>
+                        <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="18"/>
                     </Grid>
                 </Border>
 
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="22">
-                    <Border Width="180" Height="264" Background="#26363B" CornerRadius="7" ClipToBounds="True" ToolTip.Tip="{Binding PosterUrl}">
+                    <Border Width="180" Height="264" Background="{DynamicResource SurfaceHighlightBrush}" CornerRadius="7" ClipToBounds="True" ToolTip.Tip="{Binding PosterUrl}">
                         <Grid>
                             <Image Source="{Binding PosterImage}" Stretch="UniformToFill" IsVisible="{Binding HasPosterImage}"/>
-                            <TextBlock Text="{Binding PosterInitial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="54" FontWeight="SemiBold" IsVisible="{Binding HasNoPosterImage}"/>
+                            <TextBlock Text="{Binding PosterInitial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" FontSize="54" FontWeight="SemiBold" IsVisible="{Binding HasNoPosterImage}"/>
                         </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" Spacing="10">
-                        <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="32" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding ReleaseLine}" Foreground="#B8C4C5" FontSize="14"/>
-                        <TextBlock Text="{Binding GenreLine}" Foreground="#9BD5D1" FontSize="13"/>
-                        <TextBlock Text="{Binding Description}" Foreground="#C8D0D1" FontSize="14" TextWrapping="Wrap" MaxWidth="720"/>
+                        <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="32" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding ReleaseLine}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14"/>
+                        <TextBlock Text="{Binding GenreLine}" Foreground="{DynamicResource AccentBrush}" FontSize="13"/>
+                        <TextBlock Text="{Binding Description}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" TextWrapping="Wrap" MaxWidth="720"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
 
-            <TextBlock Text="No playable streams are available for this fixture." IsVisible="{Binding HasNoStreams}" Foreground="#98A5A8"/>
+            <TextBlock Text="None of your installed addons returned streams for this title." IsVisible="{Binding HasNoStreams}" Foreground="{DynamicResource TextMutedBrush}"/>
 
-            <TextBlock Text="{Binding ProviderErrorSummary}" IsVisible="{Binding HasProviderErrors}" Foreground="#E0A87A" FontSize="12" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding ProviderErrorSummary}" IsVisible="{Binding HasProviderErrors}" Foreground="{DynamicResource WarningBrush}" FontSize="12" TextWrapping="Wrap"/>
 
             <StackPanel Spacing="10" IsVisible="{Binding HasStreams}">
-                <TextBlock Text="Streams" Foreground="#F1F4F4" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Text="Streams" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="18" FontWeight="SemiBold"/>
                 <ItemsControl x:Name="StreamRows" ItemsSource="{Binding Streams}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:StreamRowViewModel">
-                            <Border Background="#182024" BorderBrush="#2C3940" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,10">
+                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,10">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel Spacing="3">
-                                        <TextBlock Text="{Binding Title}" Foreground="#F2F5F5" FontSize="15" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="15" FontWeight="SemiBold"/>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding QualityLabel}" Foreground="#9BD5D1" FontSize="12"/>
+                                            <TextBlock Text="{Binding QualityLabel}" Foreground="{DynamicResource AccentBrush}" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasProvider}">
-                                                <TextBlock Text="·" Foreground="#3F4E54" FontSize="12"/>
-                                                <TextBlock Text="{Binding ProviderName}" Foreground="#8EB6B2" FontSize="12"/>
+                                                <TextBlock Text="·" Foreground="{DynamicResource BorderStrongBrush}" FontSize="12"/>
+                                                <TextBlock Text="{Binding ProviderName}" Foreground="{DynamicResource AccentMutedBrush}" FontSize="12"/>
                                             </StackPanel>
                                         </StackPanel>
-                                        <TextBlock Text="{Binding Description}" Foreground="#98A5A8" FontSize="12" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Description}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" TextWrapping="Wrap"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Content="Play" Command="{Binding PlayCommand}" Padding="16,7" CornerRadius="5"/>
+                                    <Button Grid.Column="1" Content="Play" Command="{Binding PlayCommand}"
+                                            AutomationProperties.Name="{Binding Title, StringFormat=Play {0}}"
+                                            Padding="16,7" CornerRadius="5"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>

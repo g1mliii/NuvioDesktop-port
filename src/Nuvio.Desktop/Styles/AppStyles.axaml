@@ -1,0 +1,83 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Phase 7 shared chrome styles. Focus rings consume FocusRingBrush so keyboard/TV navigation has a
+        visible focus state across every interactive control; the .tv-focus class thickens the ring for the
+        TV / large-target focus mode (LayoutMode.Tv).
+    -->
+    <Design.PreviewWith>
+        <StackPanel Spacing="8" Width="220">
+            <Button Content="Focusable"/>
+            <Button Classes="accent" Content="Accent"/>
+        </StackPanel>
+    </Design.PreviewWith>
+
+    <Style Selector="Button">
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border BorderThickness="2"
+                        BorderBrush="{DynamicResource FocusRingBrush}"
+                        CornerRadius="6"
+                        Margin="-2"/>
+            </FocusAdornerTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="ComboBox">
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border BorderThickness="2"
+                        BorderBrush="{DynamicResource FocusRingBrush}"
+                        CornerRadius="6"
+                        Margin="-2"/>
+            </FocusAdornerTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="CheckBox">
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border BorderThickness="2"
+                        BorderBrush="{DynamicResource FocusRingBrush}"
+                        CornerRadius="6"
+                        Margin="-2"/>
+            </FocusAdornerTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border BorderThickness="2"
+                        BorderBrush="{DynamicResource FocusRingBrush}"
+                        CornerRadius="6"
+                        Margin="-1"/>
+            </FocusAdornerTemplate>
+        </Setter>
+    </Style>
+
+    <!-- Accent fill button (Install, primary actions) -->
+    <Style Selector="Button.accent">
+        <Setter Property="Background" Value="{DynamicResource AccentFillBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
+    </Style>
+
+    <!-- Destructive button (Remove) -->
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource DangerForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}"/>
+    </Style>
+
+    <!-- TV / large-target focus mode: a thicker, higher-contrast focus ring on buttons. -->
+    <Style Selector="Button.tv-focus">
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border BorderThickness="4"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        CornerRadius="8"
+                        Margin="-3"/>
+            </FocusAdornerTemplate>
+        </Setter>
+    </Style>
+</Styles>

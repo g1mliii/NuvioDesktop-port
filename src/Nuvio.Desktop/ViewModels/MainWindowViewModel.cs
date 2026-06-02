@@ -33,6 +33,15 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private string _mpvSource = string.Empty;
     private string _mpvMessage = string.Empty;
     private string _statusMessage = "Fixture shell ready";
+    private DesktopLayoutMode _layoutMode = DesktopLayoutMode.Normal;
+    private bool _tvFocusMode;
+    private bool _isPlayerFullscreen;
+
+    // Width breakpoints (DIPs). Below Compact collapses the nav rail; above Wide enlarges cards/targets.
+    internal const double CompactWidthThreshold = 1000d;
+    internal const double WideWidthThreshold = 1400d;
+    private const double DetailsPosterLayoutWidth = 180d;
+    private const double ContentHorizontalMargin = 52d;
 
     public static MainWindowViewModel CreateFixture(
         PlatformInfo? platformInfo = null,
@@ -60,7 +69,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         ICacheMaintenanceService? cacheMaintenance = null,
         DecodedImageMemoryCache? decodedImageMemoryCache = null,
         IDesktopImageLoader? imageLoader = null,
-        IWatchProgressRepository? progressRepository = null)
+        IWatchProgressRepository? progressRepository = null,
+        IThemeController? themeController = null)
     {
         _servicesOwner = servicesOwner;
         _platformInfo = platformInfo;
@@ -71,6 +81,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         NavigateCommand = new AsyncRelayCommand<DesktopRoute>(route => NavigateAsync(route ?? DesktopRoute.Home));
         BackCommand = new AsyncRelayCommand(GoBackAsync);
         FocusSearchCommand = new AsyncRelayCommand(() => NavigateAsync(DesktopRoute.Search));
+        OpenMediaFileCommand = new RelayCommand(() => OpenMediaFileRequested?.Invoke());
+        ToggleFullscreenCommand = new AsyncRelayCommand(ToggleFullscreenAsync);
+        QuitCommand = new RelayCommand(() => QuitRequested?.Invoke());
 
         var progressRecorder = progressRepository is null
             ? null
@@ -80,6 +93,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             GoBackAsync,
             settingsStore: settingsStore,
             progressRecorder: progressRecorder);
+        Player.PropertyChanged += OnPlayerPropertyChanged;
         _homePage = new HomePageViewModel(dataSource, OpenDetailsAsync);
         _searchPage = new SearchPageViewModel(dataSource, OpenDetailsAsync);
         _catalogPage = new CatalogPageViewModel(dataSource, OpenDetailsAsync);
@@ -92,10 +106,15 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             : new AddonsPageViewModel(addonService, addonDiagnostics);
 
         _settingsPage = settingsStore is not null && cacheMaintenance is not null
-            ? new SettingsPageViewModel(settingsStore, cacheMaintenance, decodedImageMemoryCache)
+            ? new SettingsPageViewModel(settingsStore, cacheMaintenance, decodedImageMemoryCache, themeController)
             : new PlaceholderPageViewModel(
                 "Settings",
                 "Desktop settings will grow from the mobile settings model after the fixture shell is stable.");
+
+        if (_settingsPage is SettingsPageViewModel typedSettingsPage)
+        {
+            typedSettingsPage.TvFocusModeChanged += OnTvFocusModeChanged;
+        }
         _currentPage = _homePage;
         StatusMessage = dataSource.ModeLabel;
 
@@ -121,7 +140,27 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public IAsyncRelayCommand FocusSearchCommand { get; }
 
+    /// <summary>Asks the view to show a native file picker (handled in code-behind); selection flows back via
+    /// <see cref="PlayLocalFileAsync"/>. Exposed as a command so menus/buttons bind to it and it stays testable.</summary>
+    public IRelayCommand OpenMediaFileCommand { get; }
+
+    public IAsyncRelayCommand ToggleFullscreenCommand { get; }
+
+    public IRelayCommand QuitCommand { get; }
+
+    /// <summary>Raised when the user invokes "Open media file…"; the view shows the StorageProvider picker.</summary>
+    public event Action? OpenMediaFileRequested;
+
+    /// <summary>Raised when the user invokes Quit from the native/app menu; the view closes the window.</summary>
+    public event Action? QuitRequested;
+
     public PlayerViewModel Player { get; }
+
+    public bool IsMacOS => _platformInfo.Family == PlatformFamily.MacOS;
+
+    /// <summary>The in-window menu is used on Windows/Linux; macOS uses a NativeMenu instead. Also hidden while
+    /// the player is fullscreen.</summary>
+    public bool IsInWindowMenuVisible => IsChromeVisible && !IsMacOS;
 
     public string AppName { get; } = "Nuvio Desktop";
 
@@ -148,6 +187,16 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     public KeyGesture SearchKeyGesture => _platformInfo.Family == PlatformFamily.MacOS
         ? new KeyGesture(Key.F, KeyModifiers.Meta)
         : new KeyGesture(Key.F, KeyModifiers.Control);
+
+    public KeyGesture OpenMediaFileKeyGesture => _platformInfo.Family == PlatformFamily.MacOS
+        ? new KeyGesture(Key.O, KeyModifiers.Meta)
+        : new KeyGesture(Key.O, KeyModifiers.Control);
+
+    public KeyGesture FullscreenKeyGesture { get; } = new(Key.F11);
+
+    public KeyGesture QuitKeyGesture => _platformInfo.Family == PlatformFamily.MacOS
+        ? new KeyGesture(Key.Q, KeyModifiers.Meta)
+        : new KeyGesture(Key.Q, KeyModifiers.Control);
 
     public DesktopRoute CurrentRoute
     {
@@ -218,6 +267,157 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         MpvMessage = mpvDiscovery.Message ?? "Nuvio will launch the detected mpv binary directly through JSON IPC.";
     }
 
+    // ---- Responsive layout (stream C) + TV focus mode (stream H) ----
+
+    public DesktopLayoutMode LayoutMode
+    {
+        get => _layoutMode;
+        private set
+        {
+            if (SetProperty(ref _layoutMode, value))
+            {
+                OnPropertyChanged(nameof(IsCompactLayout));
+                OnPropertyChanged(nameof(IsSidebarExpanded));
+                OnPropertyChanged(nameof(IsTvLayout));
+                OnPropertyChanged(nameof(SidebarWidth));
+                OnPropertyChanged(nameof(PosterCardWidth));
+                OnPropertyChanged(nameof(PosterCardHeight));
+            }
+        }
+    }
+
+    public bool TvFocusMode
+    {
+        get => _tvFocusMode;
+        private set
+        {
+            if (SetProperty(ref _tvFocusMode, value))
+            {
+                RecomputeLayoutMode();
+            }
+        }
+    }
+
+    /// <summary>True when the nav rail should collapse to an icon-only strip.</summary>
+    public bool IsCompactLayout => LayoutMode == DesktopLayoutMode.Compact;
+
+    public bool IsSidebarExpanded => LayoutMode != DesktopLayoutMode.Compact;
+
+    public bool IsTvLayout => LayoutMode == DesktopLayoutMode.Tv;
+
+    public double SidebarWidth => LayoutMode switch
+    {
+        DesktopLayoutMode.Compact => 64d,
+        DesktopLayoutMode.Tv => 260d,
+        _ => 220d
+    };
+
+    public double PosterCardWidth => LayoutMode switch
+    {
+        DesktopLayoutMode.Compact => 132d,
+        DesktopLayoutMode.Wide => 168d,
+        DesktopLayoutMode.Tv => 188d,
+        _ => 150d
+    };
+
+    public double PosterCardHeight => LayoutMode switch
+    {
+        DesktopLayoutMode.Compact => 224d,
+        DesktopLayoutMode.Wide => 280d,
+        DesktopLayoutMode.Tv => 312d,
+        _ => 252d
+    };
+
+    private double _lastKnownWidth = 1180d;
+    private double _lastKnownRenderScaling = 1d;
+
+    /// <summary>Called by the window's SizeChanged handler to recompute the responsive layout bucket.</summary>
+    public void UpdateLayoutForWidth(double width)
+    {
+        UpdateShellMetrics(width, _lastKnownRenderScaling);
+    }
+
+    public void UpdateShellMetrics(double width, double renderScaling)
+    {
+        if (width > 0)
+        {
+            _lastKnownWidth = width;
+        }
+
+        _lastKnownRenderScaling = renderScaling > 0 ? renderScaling : 1d;
+        RecomputeLayoutMode();
+        UpdateDetailsImageDecodeContext();
+    }
+
+    private void RecomputeLayoutMode()
+    {
+        if (_tvFocusMode)
+        {
+            LayoutMode = DesktopLayoutMode.Tv;
+            return;
+        }
+
+        LayoutMode = _lastKnownWidth < CompactWidthThreshold
+            ? DesktopLayoutMode.Compact
+            : _lastKnownWidth >= WideWidthThreshold
+                ? DesktopLayoutMode.Wide
+                : DesktopLayoutMode.Normal;
+    }
+
+    private void UpdateDetailsImageDecodeContext()
+    {
+        var chromeWidth = IsChromeVisible ? SidebarWidth : 0d;
+        var contentWidth = Math.Max(ImageDecodeSizing.MinBackdropDecodeWidth, _lastKnownWidth - chromeWidth - ContentHorizontalMargin);
+        _detailsPage.UpdateImageDecodeContext(DetailsPosterLayoutWidth, contentWidth, _lastKnownRenderScaling);
+    }
+
+    private void OnTvFocusModeChanged(bool enabled) => TvFocusMode = enabled;
+
+    /// <summary>Applies persisted shell preferences (currently TV focus mode) at startup, before the window
+    /// shows, so the initial layout matches the saved setting without waiting for the Settings page to load.</summary>
+    public void ApplyPersistedShellSettings(DesktopSettings settings)
+    {
+        TvFocusMode = settings.TvFocusMode;
+    }
+
+    // ---- Window-level fullscreen (stream E) ----
+
+    /// <summary>Mirrors <see cref="PlayerViewModel.IsFullscreenIntent"/> at the window level so the shell can
+    /// promote to <c>WindowState.FullScreen</c> and hide chrome. Only true while on the player route.</summary>
+    public bool IsPlayerFullscreen
+    {
+        get => _isPlayerFullscreen;
+        private set
+        {
+            if (SetProperty(ref _isPlayerFullscreen, value))
+            {
+                OnPropertyChanged(nameof(IsChromeVisible));
+                OnPropertyChanged(nameof(IsInWindowMenuVisible));
+            }
+        }
+    }
+
+    /// <summary>Inverse of <see cref="IsPlayerFullscreen"/>; chrome (menu, sidebar, top bar, footer) binds to this.</summary>
+    public bool IsChromeVisible => !IsPlayerFullscreen;
+
+    public async Task ToggleFullscreenAsync()
+    {
+        if (CurrentRoute.Kind != DesktopRouteKind.Player)
+        {
+            return;
+        }
+
+        await Player.ToggleFullscreenCommand.ExecuteAsync(null);
+    }
+
+    private void OnPlayerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlayerViewModel.IsFullscreenIntent))
+        {
+            IsPlayerFullscreen = Player.IsFullscreenIntent && CurrentRoute.Kind == DesktopRouteKind.Player;
+        }
+    }
+
     public Task NavigateAsync(DesktopRoute route) => NavigateAsync(route, addToBackStack: true);
 
     public async Task NavigateAsync(DesktopRoute route, bool addToBackStack)
@@ -257,7 +457,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         if (CurrentRoute.Kind == DesktopRouteKind.Player)
         {
-            return key is Key.Space or Key.Left or Key.Right or Key.Escape;
+            return key is Key.Space or Key.Left or Key.Right or Key.Escape or Key.F11;
         }
 
         return key == Key.Escape && CanGoBack;
@@ -296,6 +496,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             case Key.Escape:
                 await Player.ExitFullscreenOrReturnAsync();
                 return true;
+            case Key.F11:
+                await Player.ToggleFullscreenCommand.ExecuteAsync(null);
+                return true;
         }
 
         return false;
@@ -312,6 +515,48 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         await Player.LoadAndPlayAsync(source, details, _disposeCancellation.Token);
     }
 
+    /// <summary>Plays a local file chosen via the native file picker (stream G). The view supplies the path;
+    /// playback flows through the same <see cref="IPlayerEngine"/> as addon streams.</summary>
+    public async Task PlayLocalFileAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || Volatile.Read(ref _isDisposed) == 1)
+        {
+            return;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(filePath);
+        var source = new StreamSource(
+            $"local:{filePath}",
+            CreateLocalFileUri(filePath),
+            name,
+            null,
+            new Dictionary<string, string>(),
+            Array.Empty<SubtitleTrack>(),
+            IsUserProvided: true);
+        var details = new MediaDetails(
+            $"local:{filePath}",
+            "movie",
+            name,
+            null,
+            null,
+            null,
+            "Local media file",
+            null,
+            null,
+            Array.Empty<string>(),
+            Array.Empty<MediaExternalRating>(),
+            Array.Empty<MediaPerson>(),
+            Array.Empty<MediaCompany>(),
+            Array.Empty<MediaTrailer>(),
+            Array.Empty<MediaLink>(),
+            Array.Empty<MediaVideo>());
+
+        await PlayStreamAsync(source, details);
+    }
+
+    internal static Uri CreateLocalFileUri(string filePath) =>
+        new UriBuilder(Uri.UriSchemeFile, string.Empty, -1, filePath).Uri;
+
     private async Task NavigateInternalAsync(DesktopRoute route)
     {
         _navigationCancellation?.Cancel();
@@ -321,6 +566,17 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         CancelPageOperations(CurrentRoute, route);
         CurrentRoute = route;
+        if (route.Kind != DesktopRouteKind.Player)
+        {
+            // Drive the exit through the player so its fullscreen intent and the window-level flag stay
+            // coupled; otherwise returning to the player later would leave the F11 toggle out of sync.
+            await Player.ExitFullscreenAsync();
+            if (IsPlayerFullscreen)
+            {
+                IsPlayerFullscreen = false;
+            }
+        }
+
         UpdateNavigationSelection();
         StatusMessage = $"Route: {route.Label}";
 
@@ -352,6 +608,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                         throw new InvalidOperationException("Details route requires a media id.");
                     }
 
+                    UpdateDetailsImageDecodeContext();
                     await _detailsPage.LoadAsync(route.MediaId, route.MediaType, cancellationToken);
                     break;
                 case DesktopRouteKind.Player:
@@ -440,6 +697,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             addonsPage.Dispose();
         }
 
+        if (_settingsPage is SettingsPageViewModel typedSettingsPage)
+        {
+            typedSettingsPage.TvFocusModeChanged -= OnTvFocusModeChanged;
+        }
+
+        Player.PropertyChanged -= OnPlayerPropertyChanged;
         await Player.DisposeAsync();
         _disposeCancellation.Dispose();
         if (_servicesOwner is not null)

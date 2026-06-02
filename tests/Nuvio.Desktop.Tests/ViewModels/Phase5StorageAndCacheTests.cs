@@ -342,7 +342,7 @@ public sealed class Phase5StorageAndCacheTests
     {
         public List<Uri> Loaded { get; } = [];
 
-        public Task<IImage?> LoadAsync(Uri sourceUrl, CancellationToken cancellationToken)
+        public Task<IImage?> LoadAsync(Uri sourceUrl, int decodePixelWidth, CancellationToken cancellationToken)
         {
             Loaded.Add(sourceUrl);
             IImage image = new Bitmap(new MemoryStream(PngBytes));

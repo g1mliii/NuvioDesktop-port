@@ -46,7 +46,8 @@ public sealed class DecodedImageMemoryCache : IDisposable
     public async Task<IImage> GetOrAddAsync(
         string key,
         Func<CancellationToken, Task<Stream>> openStreamAsync,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<Stream, Bitmap>? decode = null)
     {
         if (TryGet(key, out var cached))
         {
@@ -54,7 +55,7 @@ public sealed class DecodedImageMemoryCache : IDisposable
         }
 
         await using var stream = await openStreamAsync(cancellationToken).ConfigureAwait(false);
-        var bitmap = new Bitmap(stream);
+        var bitmap = decode is null ? new Bitmap(stream) : decode(stream);
 
         lock (_gate)
         {

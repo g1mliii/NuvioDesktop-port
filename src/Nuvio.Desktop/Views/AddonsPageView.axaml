@@ -5,8 +5,8 @@
              x:DataType="vm:AddonsPageViewModel">
     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="26,22">
         <StackPanel Spacing="6">
-            <TextBlock Text="Addons" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
-            <TextBlock Foreground="#98A5A8" FontSize="13"
+            <TextBlock Text="Addons" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="28" FontWeight="SemiBold"/>
+            <TextBlock Foreground="{DynamicResource TextMutedBrush}" FontSize="13"
                        Text="Install Stremio-compatible manifests. Disabled addons are excluded from search, catalog, and details."/>
         </StackPanel>
 
@@ -14,17 +14,26 @@
             <TextBox x:Name="ManifestUrlInput"
                      Text="{Binding ManifestUrlInput, Mode=TwoWay}"
                      PlaceholderText="https://addons.example.test/manifest.json"
-                     Background="#0F171B" Foreground="#F2F5F5" BorderBrush="#2C3940" Padding="10,7"/>
+                     Background="{DynamicResource SurfaceAltBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                     AutomationProperties.Name="Addon manifest URL"
+                     TabIndex="0"
+                     Padding="10,7"/>
             <Button Grid.Column="1" Content="Install" Margin="10,0,0,0"
+                    Classes="accent"
                     Command="{Binding InstallCommand}"
-                    Background="#1F8F87" Foreground="White" Padding="14,7"/>
+                    AutomationProperties.Name="Install addon"
+                    TabIndex="1"
+                    Padding="14,7"/>
         </Grid>
 
-        <Border Grid.Row="2" BorderBrush="#1E2A2E" BorderThickness="1" CornerRadius="8" Background="#0E1518" Padding="10">
+        <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource BackgroundAltBrush}" Padding="10">
             <Grid RowDefinitions="Auto,*,Auto,140">
-                <TextBlock Text="Installed addons" Foreground="#9BD5D1" FontWeight="SemiBold" Margin="2,0,0,6"/>
-                <TextBlock Grid.Row="1" Text="No addons installed yet." Foreground="#98A5A8"
-                           IsVisible="{Binding !HasAddons}" Margin="2,8"/>
+                <TextBlock Text="Installed addons" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                <StackPanel Grid.Row="1" IsVisible="{Binding !HasAddons}" Margin="2,8" Spacing="4" VerticalAlignment="Top">
+                    <TextBlock Text="No addons installed yet." Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                    <TextBlock Text="Add a manifest URL to start loading catalogs, metadata, streams or subtitles into Nuvio."
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="12" TextWrapping="Wrap"/>
+                </StackPanel>
                 <ListBox Grid.Row="1" x:Name="AddonsList" ItemsSource="{Binding Addons}"
                          Background="Transparent" BorderThickness="0" Padding="0">
                     <ListBox.ItemsPanel>
@@ -35,30 +44,33 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:AddonListItemViewModel">
                             <Border Margin="0,4" Padding="12,10" CornerRadius="6"
-                                    Background="#141C20" BorderBrush="#22323A" BorderThickness="1">
+                                    Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                                 <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding Name}" Foreground="#F2F5F5" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding ManifestUrlDisplay}" Foreground="#8E9A9E" FontSize="11"/>
-                                        <TextBlock Text="{Binding LastError}" Foreground="#FFB4A6"
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding ManifestUrlDisplay}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
+                                        <TextBlock Text="{Binding LastError}" Foreground="{DynamicResource ErrorBrush}"
                                                    FontSize="11" TextWrapping="Wrap"
                                                    IsVisible="{Binding HasError}"/>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding EnabledLabel}" Foreground="#9BD5D1"
+                                    <TextBlock Grid.Column="1" Text="{Binding EnabledLabel}" Foreground="{DynamicResource AccentBrush}"
                                                VerticalAlignment="Center" Margin="12,0"/>
                                     <Button Grid.Column="2" Content="{Binding ToggleLabel}" Margin="6,0"
                                             Command="{Binding $parent[ListBox].((vm:AddonsPageViewModel)DataContext).ToggleEnabledCommand}"
                                             CommandParameter="{Binding}"
-                                            Background="#1A2528" Foreground="#F2F5F5" BorderBrush="#2C3940"/>
+                                            AutomationProperties.Name="{Binding ToggleLabel}"
+                                            Background="{DynamicResource SurfaceAltBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
                                         <Button Content="Refresh"
                                                 Command="{Binding $parent[ListBox].((vm:AddonsPageViewModel)DataContext).RefreshCommand}"
                                                 CommandParameter="{Binding}"
-                                                Background="#1A2528" Foreground="#F2F5F5" BorderBrush="#2C3940"/>
+                                                AutomationProperties.Name="Refresh addon"
+                                                Background="{DynamicResource SurfaceAltBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
                                         <Button Content="Remove"
+                                                Classes="danger"
                                                 Command="{Binding $parent[ListBox].((vm:AddonsPageViewModel)DataContext).RemoveCommand}"
                                                 CommandParameter="{Binding}"
-                                                Background="#3B1A1A" Foreground="#FFB4A6" BorderBrush="#5A2424"/>
+                                                AutomationProperties.Name="Remove addon"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -66,7 +78,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <TextBlock Grid.Row="2" Text="Recent network events" Foreground="#9BD5D1" FontWeight="SemiBold" Margin="2,14,0,6"/>
+                <TextBlock Grid.Row="2" Text="Recent network events" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" Margin="2,14,0,6"/>
                 <ListBox Grid.Row="3" x:Name="DiagnosticsList" ItemsSource="{Binding RecentEvents}"
                          Background="Transparent" BorderThickness="0" Padding="0">
                     <ListBox.ItemsPanel>
@@ -76,14 +88,14 @@
                     </ListBox.ItemsPanel>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:NetworkDiagnosticRowViewModel">
-                            <Border Margin="0,2" Padding="8,5" CornerRadius="4" Background="#141C20" BorderBrush="#1E2A2E" BorderThickness="1">
+                            <Border Margin="0,2" Padding="8,5" CornerRadius="4" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="{Binding Timestamp}" Foreground="#9BD5D1" FontFamily="Consolas" FontSize="11"/>
-                                    <TextBlock Text="{Binding Kind}" Foreground="#F2F5F5" FontSize="11" Width="60"/>
-                                    <TextBlock Text="{Binding Host}" Foreground="#A8B6BA" FontSize="11"/>
-                                    <TextBlock Text="{Binding ResourceKind}" Foreground="#9BD5D1" FontSize="11" Width="80"/>
-                                    <TextBlock Text="{Binding StatusCode}" Foreground="#A8B6BA" FontSize="11" Width="40"/>
-                                    <TextBlock Text="{Binding Message}" Foreground="#8E9A9E" FontSize="11" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Timestamp}" Foreground="{DynamicResource AccentBrush}" FontFamily="Consolas" FontSize="11"/>
+                                    <TextBlock Text="{Binding Kind}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Width="60"/>
+                                    <TextBlock Text="{Binding Host}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                                    <TextBlock Text="{Binding ResourceKind}" Foreground="{DynamicResource AccentBrush}" FontSize="11" Width="80"/>
+                                    <TextBlock Text="{Binding StatusCode}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Width="40"/>
+                                    <TextBlock Text="{Binding Message}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -92,6 +104,6 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="3" Margin="0,12,0,0" Text="{Binding StatusMessage}" Foreground="#9BD5D1" FontSize="12"/>
+        <TextBlock Grid.Row="3" Margin="0,12,0,0" Text="{Binding StatusMessage}" Foreground="{DynamicResource AccentBrush}" FontSize="12"/>
     </Grid>
 </UserControl>

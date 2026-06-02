@@ -1,21 +1,26 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             xmlns:controls="using:Nuvio.Desktop.Controls"
              x:Class="Nuvio.Desktop.Views.CatalogPageView"
              x:DataType="vm:CatalogPageViewModel">
     <Grid RowDefinitions="Auto,*" Margin="26,22">
         <Grid ColumnDefinitions="*,Auto">
             <StackPanel Spacing="4">
-                <TextBlock Text="Catalog" Foreground="#F4F7F7" FontSize="28" FontWeight="SemiBold"/>
-                <TextBlock Text="{Binding ItemCount, StringFormat={}{0} fixture titles}" Foreground="#98A5A8" FontSize="13"/>
+                <TextBlock Text="Catalog" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding ItemCount, StringFormat={}{0} fixture titles}" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
             </StackPanel>
-            <TextBlock Grid.Column="1" Text="Virtualized rows" Foreground="#9BD5D1" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="Virtualized rows" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,18,0,0">
-            <TextBlock Text="Loading catalog..." IsVisible="{Binding IsLoading}" Foreground="#9BD5D1"/>
-            <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Foreground="#FFB4A6" TextWrapping="Wrap"/>
-            <TextBlock Text="No catalog items are available." IsVisible="{Binding IsEmpty}" Foreground="#98A5A8"/>
+            <controls:StateOverlay IsLoading="{Binding IsLoading}"
+                                   IsError="{Binding HasError}"
+                                   IsEmpty="{Binding IsEmpty}"
+                                   ErrorMessage="{Binding ErrorMessage}"
+                                   LoadingMessage="Loading catalog…"
+                                   EmptyMessage="No titles found"
+                                   Hint="This catalog did not return any items. Install a catalog addon and confirm it is enabled; if it is, the addon endpoint may be unreachable — check your network."/>
 
             <ListBox x:Name="CatalogRowsList"
                      ItemsSource="{Binding Rows}"
@@ -37,28 +42,16 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PosterCardViewModel">
-                                    <Button x:Name="PosterCard"
-                                            Width="150"
-                                            Height="252"
-                                            Padding="0"
-                                            CornerRadius="7"
-                                            Command="{Binding OpenCommand}"
-                                            CommandParameter="{Binding Item}"
-                                            Background="#182024"
-                                            BorderBrush="#2C3940"
-                                            BorderThickness="1">
-                                        <Grid RowDefinitions="214,*">
-                                            <Border Width="148" Height="214" Background="#26363B" CornerRadius="7,7,0,0">
-                                                <TextBlock Text="{Binding PosterInitial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9BD5D1" FontSize="46" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <Border Grid.Row="1" Padding="8,7">
-                                                <StackPanel Spacing="2">
-                                                    <TextBlock Text="{Binding Name}" Foreground="#F2F5F5" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="34"/>
-                                                    <TextBlock Text="{Binding ReleaseInfo}" Foreground="#8E9A9E" FontSize="11"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
-                                    </Button>
+                                    <controls:PosterCard x:Name="PosterCard"
+                                                         Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                                                         Title="{Binding Name}"
+                                                         Subtitle="{Binding ReleaseInfo}"
+                                                         Initial="{Binding PosterInitial}"
+                                                         Command="{Binding OpenCommand}"
+                                                         CommandParameter="{Binding Item}"
+                                                         AutomationProperties.Name="{Binding Name}"
+                                                         CardWidth="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PosterCardWidth, FallbackValue=150}"
+                                                         CardHeight="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PosterCardHeight, FallbackValue=252}"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

@@ -1,0 +1,103 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Phase 7 design tokens. Brushes are resolved through DynamicResource so the whole chrome (not just
+        Fluent controls) re-themes live when Application.RequestedThemeVariant changes. The Dark set is the
+        source of truth carried over from Phases 0-6; the Light set is the new work derived from it.
+    -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <!-- Surfaces, back to front -->
+            <SolidColorBrush x:Key="BackgroundBrush" Color="#101315"/>
+            <SolidColorBrush x:Key="BackgroundAltBrush" Color="#111518"/>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#171C20"/>
+            <SolidColorBrush x:Key="SurfaceAltBrush" Color="#15191D"/>
+            <SolidColorBrush x:Key="CardBrush" Color="#182024"/>
+            <SolidColorBrush x:Key="SurfaceHighlightBrush" Color="#26363B"/>
+            <SolidColorBrush x:Key="PlayerBackgroundBrush" Color="#080A0B"/>
+            <SolidColorBrush x:Key="PlayerStageBrush" Color="#11181B"/>
+
+            <!-- Borders -->
+            <SolidColorBrush x:Key="BorderBrush" Color="#2C3940"/>
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#283139"/>
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F2F5F5"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#C8D0D1"/>
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#8E9A9E"/>
+
+            <!-- Accent -->
+            <SolidColorBrush x:Key="AccentBrush" Color="#9BD5D1"/>
+            <SolidColorBrush x:Key="AccentMutedBrush" Color="#8EB6B2"/>
+            <SolidColorBrush x:Key="AccentFillBrush" Color="#1F8F87"/>
+            <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF"/>
+
+            <!-- Status -->
+            <SolidColorBrush x:Key="ErrorBrush" Color="#FFB4A6"/>
+            <SolidColorBrush x:Key="WarningBrush" Color="#E0A87A"/>
+            <SolidColorBrush x:Key="SuccessBrush" Color="#7FD1A4"/>
+
+            <!-- Navigation -->
+            <SolidColorBrush x:Key="NavSelectedBackgroundBrush" Color="#214A4F"/>
+            <SolidColorBrush x:Key="NavSelectedBorderBrush" Color="#4B9CA4"/>
+            <SolidColorBrush x:Key="NavHoverBrush" Color="#233036"/>
+            <SolidColorBrush x:Key="NavGlyphBackgroundBrush" Color="#24343A"/>
+
+            <!-- Destructive -->
+            <SolidColorBrush x:Key="DangerBackgroundBrush" Color="#3B1A1A"/>
+            <SolidColorBrush x:Key="DangerForegroundBrush" Color="#FFB4A6"/>
+            <SolidColorBrush x:Key="DangerBorderBrush" Color="#5A2424"/>
+
+            <!-- Misc -->
+            <SolidColorBrush x:Key="FocusRingBrush" Color="#9BD5D1"/>
+            <SolidColorBrush x:Key="BackdropScrimBrush" Color="#990E1418"/>
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+            <!-- Surfaces, back to front -->
+            <SolidColorBrush x:Key="BackgroundBrush" Color="#F3F5F6"/>
+            <SolidColorBrush x:Key="BackgroundAltBrush" Color="#FBFCFC"/>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="SurfaceAltBrush" Color="#ECEFF1"/>
+            <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="SurfaceHighlightBrush" Color="#D9E2E4"/>
+            <SolidColorBrush x:Key="PlayerBackgroundBrush" Color="#0B0D0E"/>
+            <SolidColorBrush x:Key="PlayerStageBrush" Color="#141B1E"/>
+
+            <!-- Borders -->
+            <SolidColorBrush x:Key="BorderBrush" Color="#D4DADD"/>
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#C2C9CC"/>
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14191B"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#3C4548"/>
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#677275"/>
+
+            <!-- Accent -->
+            <SolidColorBrush x:Key="AccentBrush" Color="#1F8F87"/>
+            <SolidColorBrush x:Key="AccentMutedBrush" Color="#3F8E89"/>
+            <SolidColorBrush x:Key="AccentFillBrush" Color="#1F8F87"/>
+            <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF"/>
+
+            <!-- Status -->
+            <SolidColorBrush x:Key="ErrorBrush" Color="#B3261E"/>
+            <SolidColorBrush x:Key="WarningBrush" Color="#9A5B1E"/>
+            <SolidColorBrush x:Key="SuccessBrush" Color="#1E7D4F"/>
+
+            <!-- Navigation -->
+            <SolidColorBrush x:Key="NavSelectedBackgroundBrush" Color="#D2ECEA"/>
+            <SolidColorBrush x:Key="NavSelectedBorderBrush" Color="#1F8F87"/>
+            <SolidColorBrush x:Key="NavHoverBrush" Color="#E2E8EA"/>
+            <SolidColorBrush x:Key="NavGlyphBackgroundBrush" Color="#D2DEDF"/>
+
+            <!-- Destructive -->
+            <SolidColorBrush x:Key="DangerBackgroundBrush" Color="#FBE6E4"/>
+            <SolidColorBrush x:Key="DangerForegroundBrush" Color="#B3261E"/>
+            <SolidColorBrush x:Key="DangerBorderBrush" Color="#E5B4AE"/>
+
+            <!-- Misc -->
+            <SolidColorBrush x:Key="FocusRingBrush" Color="#1F8F87"/>
+            <SolidColorBrush x:Key="BackdropScrimBrush" Color="#66E8EEF0"/>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

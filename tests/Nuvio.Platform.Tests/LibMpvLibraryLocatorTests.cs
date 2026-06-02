@@ -41,9 +41,11 @@ public sealed class LibMpvLibraryLocatorTests
     [Fact]
     public void Locate_PrefersAppManagedOverSystemLocations()
     {
-        var appBase = Path.Combine("C:", "Nuvio");
-        var appManaged = Path.Combine(appBase, "libmpv-2.dll");
-        var systemLib = Path.Combine("C:", "Program Files", "mpv", "libmpv-2.dll");
+        // Use literal Windows separators: the locator builds candidate paths with the target platform's
+        // separator ('\' for Windows), so the fake file set must match that exactly on every host OS.
+        var appBase = @"C:\Nuvio";
+        var appManaged = @"C:\Nuvio\libmpv-2.dll";
+        var systemLib = @"C:\Program Files\mpv\libmpv-2.dll";
 
         var result = new LibMpvLibraryLocator(
                 Environment(PlatformFamily.Windows, files: [appManaged, systemLib], appBaseDirectory: appBase))

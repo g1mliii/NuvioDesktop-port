@@ -328,14 +328,8 @@ paket-files/
 # Local publish outputs
 artifacts/
 
-# Internal planning/reference docs
-nuvio_desktop_cross_platform_implementation_plan.md
-docs/architecture.md
+# Internal upstream/reference docs
 docs/packaging.md
-docs/performance-budget.md
-docs/platform-matrix.md
-docs/player-integration.md
-docs/regression-checklist.md
 upstream/
 packaging/*/README.md
 

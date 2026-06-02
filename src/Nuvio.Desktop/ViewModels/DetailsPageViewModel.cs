@@ -17,6 +17,9 @@ public sealed class DetailsPageViewModel : ViewModelBase
     private MediaDetails? _details;
     private IImage? _posterImage;
     private IImage? _backdropImage;
+    private double _posterLayoutWidth = 180d;
+    private double _backdropLayoutWidth = 720d;
+    private double _renderScaling = 1d;
 
     public DetailsPageViewModel(
         ICatalogDataSource dataSource,
@@ -131,6 +134,21 @@ public sealed class DetailsPageViewModel : ViewModelBase
 
     public bool IsEmpty => !IsLoading && !HasDetails && !HasError;
 
+    public void UpdateImageDecodeContext(double posterLayoutWidth, double backdropLayoutWidth, double renderScaling)
+    {
+        if (posterLayoutWidth > 0)
+        {
+            _posterLayoutWidth = posterLayoutWidth;
+        }
+
+        if (backdropLayoutWidth > 0)
+        {
+            _backdropLayoutWidth = backdropLayoutWidth;
+        }
+
+        _renderScaling = renderScaling > 0 ? renderScaling : 1d;
+    }
+
     public async Task LoadAsync(string mediaId, string? mediaType, CancellationToken cancellationToken)
     {
         IsLoading = true;
@@ -209,12 +227,18 @@ public sealed class DetailsPageViewModel : ViewModelBase
         {
             if (details.PosterUrl is not null)
             {
-                PosterImage = await _imageLoader.LoadAsync(details.PosterUrl, cancellationToken);
+                PosterImage = await _imageLoader.LoadAsync(
+                    details.PosterUrl,
+                    ImageDecodeSizing.PosterDecodeWidth(_posterLayoutWidth, _renderScaling),
+                    cancellationToken);
             }
 
             if (details.BackgroundUrl is not null)
             {
-                BackdropImage = await _imageLoader.LoadAsync(details.BackgroundUrl, cancellationToken);
+                BackdropImage = await _imageLoader.LoadAsync(
+                    details.BackgroundUrl,
+                    ImageDecodeSizing.BackdropDecodeWidth(_backdropLayoutWidth, _renderScaling),
+                    cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

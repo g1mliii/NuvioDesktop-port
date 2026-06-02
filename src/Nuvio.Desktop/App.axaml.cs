@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -55,7 +56,8 @@ public partial class App : Application
     private static MainWindowViewModel CreateLiveMainWindowViewModel()
     {
         var host = DesktopBootstrap.BuildLive(Path.Combine(AppContext.BaseDirectory, "appsettings.json"));
-        return new MainWindowViewModel(
+        var themeController = new ThemeController();
+        var viewModel = new MainWindowViewModel(
             PlatformInfoProvider.Current(),
             MpvDiscoveryResult.NotFound("Checking for mpv without blocking app startup."),
             host.DataSource,
@@ -67,7 +69,22 @@ public partial class App : Application
             cacheMaintenance: host.CacheMaintenance,
             decodedImageMemoryCache: host.DecodedImageMemoryCache,
             imageLoader: host.ImageLoader,
-            progressRepository: host.ProgressRepository);
+            progressRepository: host.ProgressRepository,
+            themeController: themeController);
+
+        // Apply the saved theme + shell preferences before the window shows so there is no flash of the
+        // wrong variant. BuildLive already loaded settings while constructing storage-backed services.
+        try
+        {
+            themeController.Apply(host.InitialSettings.Theme);
+            viewModel.ApplyPersistedShellSettings(host.InitialSettings);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Nuvio Desktop theme/shell startup apply failed: {ex}");
+        }
+
+        return viewModel;
     }
 
     private static async Task LoadMpvDiscoveryAsync(MainWindowViewModel viewModel)
