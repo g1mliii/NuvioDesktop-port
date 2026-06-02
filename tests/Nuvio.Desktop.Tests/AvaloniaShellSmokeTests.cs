@@ -9,7 +9,9 @@ using Nuvio.Core.Addons;
 using Nuvio.Core.Diagnostics;
 using Nuvio.Core.Models;
 using Nuvio.Core.Services;
+using Nuvio.Core.Settings;
 using Nuvio.Desktop;
+using Nuvio.Desktop.Controls;
 using Nuvio.Desktop.Models;
 using Nuvio.Desktop.Services;
 using Nuvio.Desktop.ViewModels;
@@ -166,6 +168,119 @@ public sealed class AvaloniaShellSmokeTests
         Assert.Equal("log 29", viewModel.Status);
         Assert.InRange(uiDispatchCount, 1, 6);
         await viewModel.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task PlayerView_HidesPlaceholder_WhenRenderSourceIsActive()
+    {
+        await RunOnUiThreadAsync(async () =>
+        {
+            var engineFactory = new RecordingRenderablePlayerEngineFactory();
+            var viewModel = new PlayerViewModel(
+                engineFactory,
+                () => Task.CompletedTask,
+                action => action(),
+                settingsStore: new FakeSettingsStore
+                {
+                    Settings = DesktopSettings.Default with { PlayerMode = PlayerMode.LibMpv }
+                });
+            var window = new Window
+            {
+                Width = 900,
+                Height = 560,
+                Content = new PlayerView { DataContext = viewModel }
+            };
+
+            try
+            {
+                await viewModel.LoadAndPlayAsync(CreateStreamSource(), CreateMediaDetails(), CancellationToken.None);
+                window.Show();
+                window.UpdateLayout();
+
+                var videoHost = Assert.IsType<LibMpvVideoView>(FindVisualDescendant<LibMpvVideoView>(window, "VideoHost"));
+                var placeholder = Assert.IsType<StackPanel>(FindVisualDescendant<StackPanel>(window, "PlaybackPlaceholder"));
+
+                Assert.Same(engineFactory.Engine, viewModel.VideoSource);
+                Assert.Same(engineFactory.Engine, videoHost.Engine);
+                Assert.True(videoHost.IsVisible);
+                Assert.False(placeholder.IsVisible);
+            }
+            finally
+            {
+                window.Close();
+                await viewModel.DisposeAsync();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task Player_FallsBackToExternalMpv_WhenRenderSourceReportsFailure()
+    {
+        var engineFactory = new RenderFailureFallbackPlayerEngineFactory();
+        var viewModel = new PlayerViewModel(
+            engineFactory,
+            () => Task.CompletedTask,
+            action => action(),
+            settingsStore: new FakeSettingsStore
+            {
+                Settings = DesktopSettings.Default with { PlayerMode = PlayerMode.LibMpv }
+            });
+
+        try
+        {
+            await viewModel.LoadAndPlayAsync(CreateStreamSource(), CreateMediaDetails(), CancellationToken.None);
+
+            Assert.Same(engineFactory.RenderEngine, viewModel.VideoSource);
+
+            engineFactory.RenderEngine.ReportRenderFailure(new InvalidOperationException("OpenGL unavailable"));
+
+            await WaitForConditionAsync(() => engineFactory.ExternalEngine.Calls.Contains("Play") && viewModel.VideoSource is null);
+
+            Assert.True(engineFactory.RenderEngine.IsDisposed);
+            Assert.Equal(["Initialize", "Load", "Play"], engineFactory.ExternalEngine.Calls);
+            Assert.Contains("render failed", viewModel.Status, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("external mpv", viewModel.Status, StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(viewModel.ErrorMessage);
+        }
+        finally
+        {
+            await viewModel.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task LibMpvVideoView_DisposesRenderSession_WhenRenderSourceClears()
+    {
+        await RunOnUiThreadAsync(() =>
+        {
+            var engine = new RecordingRenderablePlayerEngine();
+            var view = new LibMpvVideoView { Engine = engine };
+
+            Assert.True(view.TryCreateSessionForTesting(engine, _ => IntPtr.Zero));
+            var session = Assert.Single(engine.Sessions);
+            Assert.False(session.IsDisposed);
+
+            view.Engine = null;
+
+            Assert.True(session.IsDisposed);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task LibMpvVideoView_ReportsRenderFailure_WhenSessionCreationFails()
+    {
+        await RunOnUiThreadAsync(() =>
+        {
+            var engine = new RecordingRenderablePlayerEngine { ThrowOnCreateSession = true };
+            var view = new LibMpvVideoView { Engine = engine };
+
+            Assert.False(view.TryCreateSessionForTesting(engine, _ => IntPtr.Zero));
+
+            var failure = Assert.IsType<InvalidOperationException>(engine.ReportedRenderFailure);
+            Assert.Equal("render session failure", failure.Message);
+            return Task.CompletedTask;
+        });
     }
 
     [Fact]
@@ -389,6 +504,15 @@ public sealed class AvaloniaShellSmokeTests
         }, CancellationToken.None);
     }
 
+    private static async Task WaitForConditionAsync(Func<bool> predicate)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        while (!predicate())
+        {
+            await Task.Delay(25, timeout.Token);
+        }
+    }
+
     private static async Task CloseHeadlessWindowAsync(MainWindow window, MainWindowViewModel viewModel)
     {
         window.DataContext = null;
@@ -484,20 +608,22 @@ public sealed class AvaloniaShellSmokeTests
 
         public List<RecordingPlayerEngine> CreatedEngines { get; } = [];
 
-        public IPlayerEngine Create()
+        public IPlayerEngine Create(PlayerOptions options)
         {
             CreatedEngines.Add(Engine);
             return Engine;
         }
     }
 
-    private sealed class RecordingPlayerEngine : IPlayerEngine
+    private class RecordingPlayerEngine : IPlayerEngine
     {
         private readonly Channel<PlayerEvent> _events = Channel.CreateUnbounded<PlayerEvent>();
 
         public List<string> Calls { get; } = [];
 
         public StreamSource? LoadedSource { get; private set; }
+
+        public bool IsDisposed { get; private set; }
 
         public Task InitializeAsync(PlayerOptions options, CancellationToken cancellationToken)
         {
@@ -578,8 +704,87 @@ public sealed class AvaloniaShellSmokeTests
 
         public ValueTask DisposeAsync()
         {
+            IsDisposed = true;
             _events.Writer.TryComplete();
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingRenderablePlayerEngineFactory : IPlayerEngineFactory
+    {
+        public RecordingRenderablePlayerEngine Engine { get; } = new();
+
+        public IPlayerEngine Create(PlayerOptions options) => Engine;
+    }
+
+    private sealed class RecordingRenderablePlayerEngine : RecordingPlayerEngine, IPlayerRenderSource
+    {
+        public List<RecordingRenderSession> Sessions { get; } = [];
+
+        public bool ThrowOnCreateSession { get; init; }
+
+        public Exception? ReportedRenderFailure { get; private set; }
+
+        public event EventHandler<PlayerRenderFailureEventArgs>? RenderFailed;
+
+        public IPlayerRenderSession CreateRenderSession(Func<string, IntPtr> getProcAddress, Action onUpdate)
+        {
+            if (ThrowOnCreateSession)
+            {
+                throw new InvalidOperationException("render session failure");
+            }
+
+            var session = new RecordingRenderSession();
+            Sessions.Add(session);
+            return session;
+        }
+
+        public void ReportRenderFailure(Exception exception)
+        {
+            ReportedRenderFailure = exception;
+            RenderFailed?.Invoke(this, new PlayerRenderFailureEventArgs(exception));
+        }
+    }
+
+    private sealed class RenderFailureFallbackPlayerEngineFactory : IPlayerEngineFactory
+    {
+        public RecordingRenderablePlayerEngine RenderEngine { get; } = new();
+
+        public RecordingPlayerEngine ExternalEngine { get; } = new();
+
+        public IPlayerEngine Create(PlayerOptions options) =>
+            string.Equals(options.PreferredEngine, SelectingPlayerEngineFactory.LibMpvEngineId, StringComparison.Ordinal)
+                ? RenderEngine
+                : ExternalEngine;
+    }
+
+    private sealed class RecordingRenderSession : IPlayerRenderSession
+    {
+        public bool IsDisposed { get; private set; }
+
+        public bool Update() => true;
+
+        public void Render(int framebufferObject, int width, int height)
+        {
+        }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
+    }
+
+    private sealed class FakeSettingsStore : ISettingsStore
+    {
+        public DesktopSettings Settings { get; set; } = DesktopSettings.Default;
+
+        public Task<DesktopSettings> LoadAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(Settings);
+
+        public Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken)
+        {
+            Settings = settings;
+            return Task.CompletedTask;
         }
     }
 
@@ -587,7 +792,7 @@ public sealed class AvaloniaShellSmokeTests
     {
         public LoadFailingPlayerEngine Engine { get; } = new();
 
-        public IPlayerEngine Create() => Engine;
+        public IPlayerEngine Create(PlayerOptions options) => Engine;
     }
 
     private sealed class LoadFailingPlayerEngine : IPlayerEngine

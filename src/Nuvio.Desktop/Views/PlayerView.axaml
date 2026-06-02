@@ -1,13 +1,22 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             xmlns:controls="using:Nuvio.Desktop.Controls"
              x:Class="Nuvio.Desktop.Views.PlayerView"
              x:DataType="vm:PlayerViewModel">
     <Grid RowDefinitions="*,Auto" Background="#080A0B">
         <Grid Margin="28">
-            <Border Background="#11181B" BorderBrush="#26343A" BorderThickness="1" CornerRadius="8">
+            <Border Background="#11181B" BorderBrush="#26343A" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
                 <Grid Margin="22">
-                    <StackPanel Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <controls:LibMpvVideoView x:Name="VideoHost"
+                                              Engine="{Binding VideoSource}"
+                                              IsVisible="{Binding VideoSource, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                              Margin="-22"/>
+                    <StackPanel x:Name="PlaybackPlaceholder"
+                                IsVisible="{Binding VideoSource, Converter={x:Static ObjectConverters.IsNull}}"
+                                Spacing="10"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
                         <TextBlock Text="{Binding Title}" Foreground="#F4F7F7" FontSize="30" FontWeight="SemiBold" TextAlignment="Center"/>
                         <TextBlock Text="{Binding StreamTitle}" Foreground="#9BD5D1" FontSize="15" TextAlignment="Center"/>
                         <TextBlock Text="{Binding Status}" Foreground="#A8B4B6" FontSize="13" TextAlignment="Center" TextWrapping="Wrap"/>

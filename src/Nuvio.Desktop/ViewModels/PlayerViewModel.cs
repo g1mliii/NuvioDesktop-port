@@ -19,6 +19,8 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private IPlayerEngine? _engine;
     private CancellationTokenSource? _lifetime;
     private Task? _eventsTask;
+    private IPlayerRenderSource? _renderFailureSource;
+    private EventHandler<PlayerRenderFailureEventArgs>? _renderFailureHandler;
     private PlayerEvent.PlaybackPositionChanged? _pendingPositionEvent;
     private string? _pendingLogStatus;
     private int _playbackGeneration;
@@ -29,6 +31,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private string _streamTitle = "No stream loaded";
     private string _status = "Idle";
     private string _errorMessage = string.Empty;
+    private string? _fallbackDiagnosticStatus;
     private bool _isPlaying;
     private bool _isBuffering;
     private bool _isAvailable;
@@ -36,6 +39,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private TimeSpan _position = TimeSpan.Zero;
     private TimeSpan? _duration;
     private int _volume = PlayerOptions.ExternalMpvDefault.InitialVolume;
+    private IPlayerRenderSource? _videoSource;
 
     public PlayerViewModel(
         IPlayerEngineFactory engineFactory,
@@ -155,6 +159,16 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// The active embedded render source when in-app playback is in use; null for external mpv. The player
+    /// view binds its video surface to this without depending on the concrete engine backend.
+    /// </summary>
+    public IPlayerRenderSource? VideoSource
+    {
+        get => _videoSource;
+        private set => SetProperty(ref _videoSource, value);
+    }
+
     public string PositionLabel => Duration is { } duration
         ? $"{FormatTime(Position)} / {FormatTime(duration)}"
         : FormatTime(Position);
@@ -187,6 +201,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
 
         Title = details.Name;
         StreamTitle = source.Title ?? "Fixture stream";
+        ClearFallbackDiagnosticStatus();
         Status = "Starting external mpv";
         ErrorMessage = string.Empty;
         Position = TimeSpan.Zero;
@@ -202,11 +217,41 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
                 : await _settingsStore.LoadAsync(playbackToken);
             var playerOptions = ToPlayerOptions(settings);
             Volume = playerOptions.InitialVolume;
-            _engine = _engineFactory.Create();
-            await _engine.InitializeAsync(playerOptions, playbackToken);
-            _eventsTask = ObserveEventsAsync(_engine, playbackToken, generation);
-            await _engine.LoadAsync(source, playbackToken);
-            await _engine.PlayAsync(playbackToken);
+
+            var libMpvRequested = string.Equals(playerOptions.PreferredEngine, SelectingPlayerEngineFactory.LibMpvEngineId, StringComparison.Ordinal);
+            var engine = _engineFactory.Create(playerOptions);
+            var probeFellBackToExternal = libMpvRequested && engine is not IPlayerRenderSource;
+            var embeddedRenderSourceActive = libMpvRequested && engine is IPlayerRenderSource;
+
+            try
+            {
+                await StartPlaybackAsync(engine, source, playerOptions, playbackToken, generation);
+            }
+            catch (Exception) when (embeddedRenderSourceActive
+                && !playbackToken.IsCancellationRequested
+                && generation == _playbackGeneration)
+            {
+                // Runtime engine failover (parity with upstream's startup engine failover): embedded libmpv
+                // failed to start, so switch to external mpv for the same source rather than stranding the user.
+                // Bump the generation first so any events still draining from the failed libmpv engine
+                // (PlayerError / AvailabilityChanged(false)) are gated out and can't clobber the external-mpv
+                // UI state we establish below.
+                generation = ++_playbackGeneration;
+                await DisposeCurrentEngineForFailoverAsync();
+                var externalOptions = playerOptions with { PreferredEngine = "external-mpv" };
+                await StartPlaybackAsync(_engineFactory.Create(externalOptions), source, externalOptions, playbackToken, generation);
+                if (generation != _playbackGeneration || playbackToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                IsPlaying = true;
+                IsBuffering = false;
+                ErrorMessage = string.Empty;
+                SetFallbackDiagnosticStatus("Embedded libmpv failed to start; switched to external mpv");
+                return;
+            }
+
             if (generation != _playbackGeneration || playbackToken.IsCancellationRequested)
             {
                 return;
@@ -214,7 +259,16 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
 
             IsPlaying = true;
             IsBuffering = false;
-            Status = "Playing through IPlayerEngine";
+            if (probeFellBackToExternal)
+            {
+                SetFallbackDiagnosticStatus("libmpv unavailable; playing through external mpv");
+            }
+            else
+            {
+                Status = embeddedRenderSourceActive
+                    ? "Playing through embedded libmpv"
+                    : "Playing through IPlayerEngine";
+            }
         }
         catch (OperationCanceledException) when (playbackToken.IsCancellationRequested)
         {
@@ -222,12 +276,154 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
         catch (Exception ex)
         {
+            if (generation != _playbackGeneration || playbackToken.IsCancellationRequested)
+            {
+                // A newer playback superseded this one (which already tore down our engine), or it was
+                // cancelled — don't reset the current engine or surface a stale error over the new session.
+                return;
+            }
+
             var message = ex.Message;
             await ResetEngineAsync();
             IsBuffering = false;
             IsPlaying = false;
             Status = "Player error";
             ErrorMessage = message;
+        }
+    }
+
+    private async Task StartPlaybackAsync(
+        IPlayerEngine engine,
+        StreamSource source,
+        PlayerOptions options,
+        CancellationToken playbackToken,
+        int generation)
+    {
+        _engine = engine;
+        await engine.InitializeAsync(options, playbackToken);
+        AttachRenderFailureHandler(engine as IPlayerRenderSource, source, options, playbackToken, generation);
+        _eventsTask = ObserveEventsAsync(engine, playbackToken, generation);
+        await engine.LoadAsync(source, playbackToken);
+        await engine.PlayAsync(playbackToken);
+    }
+
+    private void AttachRenderFailureHandler(
+        IPlayerRenderSource? renderSource,
+        StreamSource source,
+        PlayerOptions options,
+        CancellationToken playbackToken,
+        int generation)
+    {
+        DetachRenderFailureHandler();
+        VideoSource = renderSource;
+        if (renderSource is null)
+        {
+            return;
+        }
+
+        EventHandler<PlayerRenderFailureEventArgs> handler = (_, args) =>
+        {
+            _dispatchToUi(() => _ = FailOverAfterRenderFailureAsync(source, options, playbackToken, generation, args.Exception));
+        };
+        _renderFailureSource = renderSource;
+        _renderFailureHandler = handler;
+        renderSource.RenderFailed += handler;
+    }
+
+    private void DetachRenderFailureHandler()
+    {
+        if (_renderFailureSource is not null && _renderFailureHandler is not null)
+        {
+            _renderFailureSource.RenderFailed -= _renderFailureHandler;
+        }
+
+        _renderFailureSource = null;
+        _renderFailureHandler = null;
+    }
+
+    private async Task FailOverAfterRenderFailureAsync(
+        StreamSource source,
+        PlayerOptions playerOptions,
+        CancellationToken playbackToken,
+        int generation,
+        Exception exception)
+    {
+        if (!string.Equals(playerOptions.PreferredEngine, SelectingPlayerEngineFactory.LibMpvEngineId, StringComparison.Ordinal)
+            || generation != _playbackGeneration
+            || playbackToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        generation = ++_playbackGeneration;
+        await DisposeCurrentEngineForFailoverAsync();
+        if (generation != _playbackGeneration || playbackToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var externalOptions = playerOptions with { PreferredEngine = "external-mpv" };
+        try
+        {
+            await StartPlaybackAsync(_engineFactory.Create(externalOptions), source, externalOptions, playbackToken, generation);
+            if (generation != _playbackGeneration || playbackToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            IsPlaying = true;
+            IsBuffering = false;
+            ErrorMessage = string.Empty;
+            SetFallbackDiagnosticStatus($"Embedded libmpv render failed; switched to external mpv ({exception.Message})");
+        }
+        catch (OperationCanceledException) when (playbackToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (generation != _playbackGeneration || playbackToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var message = ex.Message;
+            await ResetEngineAsync();
+            IsBuffering = false;
+            IsPlaying = false;
+            Status = "Player error";
+            ErrorMessage = message;
+        }
+    }
+
+    private async Task DisposeCurrentEngineForFailoverAsync()
+    {
+        // Tear down the failed engine without cancelling the lifetime, so the failover attempt reuses the
+        // same cancellation token and keeps the progress recorder running. (The caller bumps the playback
+        // generation so stale events from this failed engine are gated out of the UI.)
+        var engine = _engine;
+        var eventsTask = _eventsTask;
+        _engine = null;
+        _eventsTask = null;
+        DetachRenderFailureHandler();
+        VideoSource = null;
+
+        if (engine is not null)
+        {
+            await engine.DisposeAsync();
+        }
+
+        if (eventsTask is not null)
+        {
+            try
+            {
+                await eventsTask.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+            catch (TimeoutException)
+            {
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
     }
 
@@ -250,6 +446,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
 
         await _engine.PlayAsync(PlaybackToken);
+        ClearFallbackDiagnosticStatus();
         IsPlaying = true;
         Status = "Playing";
     }
@@ -262,6 +459,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
 
         await _engine.PauseAsync(PlaybackToken);
+        ClearFallbackDiagnosticStatus();
         IsPlaying = false;
         Status = "Paused";
         await FlushProgressAsync(isEnded: false, PlaybackToken);
@@ -283,6 +481,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
 
         await _engine.SeekAsync(target, PlaybackToken);
+        ClearFallbackDiagnosticStatus();
         Position = target;
         Status = $"Seek {FormatTime(target)}";
     }
@@ -295,6 +494,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
 
         await _engine.StopAsync(PlaybackToken);
+        ClearFallbackDiagnosticStatus();
         IsPlaying = false;
         Status = "Stopped";
         await FlushProgressAsync(isEnded: false, PlaybackToken);
@@ -315,6 +515,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
             await _engine.SetFullscreenAsync(isFullscreen, PlaybackToken);
         }
 
+        ClearFallbackDiagnosticStatus();
         IsFullscreenIntent = isFullscreen;
         Status = isFullscreen ? "Fullscreen requested" : "Windowed playback requested";
     }
@@ -332,6 +533,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
             }
             catch (Exception ex)
             {
+                ClearFallbackDiagnosticStatus();
                 Status = "Player error";
                 ErrorMessage = ex.Message;
             }
@@ -504,46 +706,84 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
 
     private void ApplyPlayerEvent(PlayerEvent playerEvent)
     {
+        var preserveFallbackStatus = ShouldPreserveFallbackDiagnosticStatus(playerEvent);
         switch (playerEvent)
         {
             case PlayerEvent.AvailabilityChanged availability:
                 IsAvailable = availability.IsAvailable;
-                Status = availability.IsAvailable
-                    ? $"mpv available {availability.Version}".Trim()
-                    : "mpv unavailable";
+                if (!preserveFallbackStatus)
+                {
+                    Status = availability.IsAvailable
+                        ? $"mpv available {availability.Version}".Trim()
+                        : "mpv unavailable";
+                }
+
                 break;
             case PlayerEvent.PlaybackStateChanged state:
                 IsPlaying = state.IsPlaying;
-                Status = state.IsPlaying ? "Playing" : "Paused";
+                if (!preserveFallbackStatus)
+                {
+                    Status = state.IsPlaying ? "Playing" : "Paused";
+                }
+
                 break;
             case PlayerEvent.PlaybackPositionChanged position:
                 Position = position.Position;
                 Duration = position.Duration;
                 break;
             case PlayerEvent.FileLoaded:
-                Status = "Stream loaded";
+                if (!preserveFallbackStatus)
+                {
+                    Status = "Stream loaded";
+                }
+
                 break;
             case PlayerEvent.PlaybackEnded ended:
+                ClearFallbackDiagnosticStatus();
                 IsPlaying = false;
                 Status = string.IsNullOrWhiteSpace(ended.Reason) ? "Playback ended" : $"Playback ended: {ended.Reason}";
                 break;
             case PlayerEvent.BufferingStateChanged buffering:
                 IsBuffering = buffering.IsBuffering;
-                if (!string.IsNullOrWhiteSpace(buffering.Summary))
+                if (!preserveFallbackStatus && !string.IsNullOrWhiteSpace(buffering.Summary))
                 {
                     Status = buffering.Summary;
                 }
 
                 break;
             case PlayerEvent.PlayerError error:
+                ClearFallbackDiagnosticStatus();
                 ErrorMessage = error.Message;
                 Status = "Player error";
                 break;
             case PlayerEvent.PlayerLog log:
-                Status = log.Message;
+                if (!preserveFallbackStatus)
+                {
+                    Status = log.Message;
+                }
+
                 break;
         }
     }
+
+    private void SetFallbackDiagnosticStatus(string message)
+    {
+        _fallbackDiagnosticStatus = message;
+        Status = message;
+    }
+
+    private void ClearFallbackDiagnosticStatus()
+    {
+        _fallbackDiagnosticStatus = null;
+    }
+
+    private bool ShouldPreserveFallbackDiagnosticStatus(PlayerEvent playerEvent) =>
+        _fallbackDiagnosticStatus is not null &&
+        playerEvent is PlayerEvent.AvailabilityChanged
+            or PlayerEvent.PlaybackStateChanged
+            or PlayerEvent.FileLoaded
+            or PlayerEvent.BufferingStateChanged
+            or PlayerEvent.PlayerLog;
 
     private async Task ResetEngineAsync()
     {
@@ -554,6 +794,9 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         _lifetime = null;
         _eventsTask = null;
         _engine = null;
+        DetachRenderFailureHandler();
+        VideoSource = null;
+        ClearFallbackDiagnosticStatus();
 
         if (lifetime is not null)
         {
@@ -632,7 +875,9 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         var normalized = settings.Normalize();
         return PlayerOptions.ExternalMpvDefault with
         {
-            PreferredEngine = "external-mpv",
+            PreferredEngine = normalized.PlayerMode == PlayerMode.LibMpv
+                ? SelectingPlayerEngineFactory.LibMpvEngineId
+                : "external-mpv",
             InitialVolume = normalized.InitialVolume,
             HardwareDecodingEnabled = normalized.HardwareDecodingEnabled
         };

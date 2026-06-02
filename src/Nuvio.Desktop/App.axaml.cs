@@ -60,7 +60,7 @@ public partial class App : Application
             MpvDiscoveryResult.NotFound("Checking for mpv without blocking app startup."),
             host.DataSource,
             host.AddonService,
-            new ExternalMpvPlayerEngineFactory(),
+            new SelectingPlayerEngineFactory(),
             servicesOwner: host,
             addonDiagnostics: host.Diagnostics,
             settingsStore: host.SettingsStore,

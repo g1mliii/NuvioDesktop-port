@@ -334,7 +334,7 @@ public sealed class Phase5StorageAndCacheTests
 
     private sealed class UnusedPlayerEngineFactory : IPlayerEngineFactory
     {
-        public IPlayerEngine Create() =>
+        public IPlayerEngine Create(PlayerOptions options) =>
             throw new InvalidOperationException("This test does not start playback.");
     }
 

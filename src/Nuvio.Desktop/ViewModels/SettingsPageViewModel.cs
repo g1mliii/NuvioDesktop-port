@@ -35,7 +35,8 @@ public sealed class SettingsPageViewModel : ViewModelBase
         ];
         PlayerModeOptions =
         [
-            new PlayerModeOption("External mpv", PlayerMode.ExternalMpv)
+            new PlayerModeOption("External mpv", PlayerMode.ExternalMpv),
+            new PlayerModeOption("Embedded libmpv (experimental)", PlayerMode.LibMpv)
         ];
         _selectedTheme = ThemeOptions[0];
         _selectedPlayerMode = PlayerModeOptions[0];
@@ -166,7 +167,7 @@ public sealed class SettingsPageViewModel : ViewModelBase
     {
         settings = settings.Normalize();
         SelectedTheme = ThemeOptions.First(option => option.Value == settings.Theme);
-        SelectedPlayerMode = PlayerModeOptions[0];
+        SelectedPlayerMode = PlayerModeOptions.FirstOrDefault(option => option.Value == settings.PlayerMode) ?? PlayerModeOptions[0];
         HardwareDecodingEnabled = settings.HardwareDecodingEnabled;
         InitialVolume = settings.InitialVolume;
         ImageDiskCacheLimitMb = BytesToMegabytes(settings.ImageDiskCacheLimitBytes);
