@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  package:
     name: ${{ matrix.rid }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -27,8 +27,28 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
-      - run: dotnet publish src/Nuvio.Desktop/Nuvio.Desktop.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained true --output artifacts/${{ matrix.rid }}
-      - uses: actions/upload-artifact@v5
+
+      # Each packager publishes self-contained, stages compliance files, runs the
+      # published binary with --self-check (launch/exit smoke, skipped on cross-RID
+      # publishes), and emits a labelled artifact under artifacts/dist.
+      # macOS stays UNSIGNED in CI (no signing secrets); signing/notarization is a local
+      # step driven by the NUVIO_MACOS_* env vars. See docs/packaging.md.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Rid ${{ matrix.rid }}
+
+      - name: Package (macOS, unsigned)
+        if: runner.os == 'macOS'
+        run: ./scripts/package-macos.sh ${{ matrix.rid }}
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: ./scripts/package-linux.sh ${{ matrix.rid }}
+
+      - name: Upload labelled artifact
+        uses: actions/upload-artifact@v5
         with:
           name: nuvio-desktop-${{ matrix.rid }}
-          path: artifacts/${{ matrix.rid }}
+          path: artifacts/dist
+          if-no-files-found: error

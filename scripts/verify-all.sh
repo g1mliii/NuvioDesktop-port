@@ -18,6 +18,9 @@ for path in \
   docs/regression-checklist.md \
   docs/phase-1-behavior-mapping.md \
   docs/player-parity-notes.md \
+  docs/packaging.md \
+  docs/source-availability.md \
+  docs/native-dependency-provenance.md \
   docs/adr/0001-rebuild-desktop-ui-in-avalonia.md; do
   if [ ! -f "$path" ]; then
     echo "Missing required handoff file: $path" >&2

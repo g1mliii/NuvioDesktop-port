@@ -9,8 +9,18 @@ sealed class Program
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static int Main(string[] args)
+    {
+        // Headless packaging smoke: boot the service graph, report platform + player
+        // discovery, and exit without ever creating a window. Handled before Avalonia
+        // starts, mirroring the --fixture-data flag plumbing in App.
+        if (SelfCheck.IsRequested(args))
+        {
+            return SelfCheck.Run(Console.Out);
+        }
+
+        return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()

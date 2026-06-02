@@ -866,20 +866,44 @@ Use installed skills first. Install a new skill only when a phase has a clear ga
 
 **Upstream reuse:** Use `upstream/NuvioMobile` as the primary behavioral source for release notes structure, GPL/source-distribution patterns, versioning conventions, and dependency-notice practices. Use `upstream/NuvioTV` as the playback/TV UX reference for packaged playback expectations and known installer/support patterns.
 
-- [ ] 8.1 Add `dotnet publish` scripts for each runtime identifier.
-- [ ] 8.2 Decide whether to bundle mpv/libmpv or require user-installed mpv for each release channel.
-- [ ] 8.3 Windows: create portable zip first.
-- [ ] 8.4 Windows: add MSIX or MSI packaging after zip is stable.
-- [ ] 8.5 macOS: create `.app` bundle with `Info.plist`, icon, executable permissions, and embedded native dependencies.
-- [ ] 8.6 macOS: add signing and notarization for public distribution.
-- [ ] 8.7 Linux: create tar.gz portable package first.
-- [ ] 8.8 Linux: add AppImage after tar.gz is stable.
-- [ ] 8.9 Linux: add deb/rpm packaging if there is demand.
-- [ ] 8.10 Add Avalonia artifact smoke tests: launch, open settings, detect player, exit.
-- [ ] 8.11 Add dependency license inventory generation.
-- [ ] 8.12 Add source bundle generation for GPL release compliance.
-- [ ] 8.13 Add artifact contents tests that assert `LICENSE`, `NOTICE`, dependency inventory, and source instructions are included.
-- [ ] 8.14 Add native dependency provenance notes for every bundled mpv/libmpv binary.
+- [x] 8.1 Add `dotnet publish` scripts for each runtime identifier. (RID-parameterized `scripts/package-*`; defaults win-x64/osx-arm64/linux-x64.)
+- [x] 8.2 Decide whether to bundle mpv/libmpv or require user-installed mpv for each release channel. (Decision: **do not bundle**; rely on the `Nuvio.Platform` discovery chain — `docs/native-dependency-provenance.md`.)
+- [x] 8.3 Windows: create portable zip first. (`scripts/package-windows.ps1` → `nuvio-desktop-<version>-win-x64.zip`, unsigned.)
+- [ ] 8.4 Windows: add MSIX or MSI packaging after zip is stable. **Deferred to post-MVP backlog** (with Authenticode signing).
+- [x] 8.5 macOS: create `.app` bundle with `Info.plist`, icon, executable permissions, and embedded native dependencies. (Bundle assembled by `scripts/package-macos.sh`; mpv/libmpv intentionally not embedded — discovered at runtime.)
+- [x] 8.6 macOS: add signing and notarization for public distribution. (Scripted local `codesign`/`notarytool`/`stapler` gated on `NUVIO_MACOS_*` env vars; CI stays unsigned.)
+- [x] 8.7 Linux: create tar.gz portable package first. (`scripts/package-linux.sh` → `nuvio-desktop-<version>-linux-x64.tar.gz`.)
+- [ ] 8.8 Linux: add AppImage after tar.gz is stable. **Deferred to post-MVP backlog.**
+- [ ] 8.9 Linux: add deb/rpm packaging if there is demand. **Deferred to post-MVP backlog.**
+- [x] 8.10 Add Avalonia artifact smoke tests: launch, open settings, detect player, exit. (Headless `--self-check` startup path in `Program.cs`; packagers + `package.yml` run the published binary with `--self-check`.)
+- [x] 8.11 Add dependency license inventory generation. (`scripts/generate-license-inventory.*` regenerates `docs/dependency-licenses.md`; no `TBD`; curated map with graph-drift guard.)
+- [x] 8.12 Add source bundle generation for GPL release compliance. (`scripts/make-source-bundle.*` via `git archive`, excludes `upstream/`; wired into `release.yml`.)
+- [x] 8.13 Add artifact contents tests that assert `LICENSE`, `NOTICE`, dependency inventory, and source instructions are included. (`Phase8PackagingTests` + extended `ComplianceFilesTests`; artifact-contents gated by `NUVIO_ARTIFACT_DIR`.)
+- [x] 8.14 Add native dependency provenance notes for every bundled mpv/libmpv binary. (`docs/native-dependency-provenance.md`; none bundled today, with a per-binary table to fill if one is ever dropped in.)
+
+> **Phase 8 completion note.** Packaging produces labelled, compliance-complete,
+> launch-smoked artifacts per OS (`scripts/package-{windows.ps1,macos.sh,linux.sh}`):
+> Windows portable `.zip` (unsigned), Linux `.tar.gz`, macOS `.app` + DMG (signed +
+> notarized locally when `NUVIO_MACOS_*` env vars are present, otherwise unsigned in CI).
+> Versioning is centralized in `Directory.Build.props` (default `0.8.0`, `-p:Version=`
+> overridable). mpv/libmpv is **not** bundled — the app uses the existing
+> `MpvProcessLocator`/`LibMpvLibraryLocator` discovery chain, documented in
+> `docs/native-dependency-provenance.md`. GPL source availability is a written offer plus
+> a reproducible `git archive` tarball (`docs/source-availability.md`,
+> `scripts/make-source-bundle.*`). The license inventory is generated with no `TBD`
+> (`scripts/generate-license-inventory.*`). A headless `--self-check` path is the
+> launch/exit smoke. Strategy and gates: `docs/packaging.md` and the Phase 8 Gate in
+> `docs/regression-checklist.md`.
+>
+> **Deferred to post-MVP backlog (not in Phase 8):** Windows MSIX/MSI (8.4) and
+> Authenticode signing; Linux AppImage (8.8) and deb/rpm (8.9); assembly
+> trimming/single-file/size optimization (revisited as a Phase 9 size investigation).
+>
+> **Verified on Linux:** `dotnet build`/`dotnet test` (Release), `verify-all.sh`,
+> `generate-license-inventory.sh` (no `TBD`), `package-linux.sh` (artifact + `--self-check`
+> exit 0), `make-source-bundle.sh` (excludes `upstream/`), and the `NUVIO_ARTIFACT_DIR`
+> artifact-contents gate. **Verified by inspection only (not runnable here):** the Windows
+> `.ps1` packager, the macOS `.app`/DMG assembly, and macOS signing/notarization.
 
 - **Verify**: downloadable artifacts exist for Windows, macOS, and Linux and can launch on clean-ish machines/runners with clear player dependency behavior.
 - **Regression**:

@@ -329,9 +329,7 @@ paket-files/
 artifacts/
 
 # Internal upstream/reference docs
-docs/packaging.md
 upstream/
-packaging/*/README.md
 
 # FAKE - F# Make
 .fake/
@@ -489,7 +487,3 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 AGENTS.md
-docs/phase-1-behavior-mapping.md
-docs/player-parity-notes.md
-.gitignore
-docs/adr/0001-rebuild-desktop-ui-in-avalonia.md

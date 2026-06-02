@@ -8,6 +8,8 @@ public sealed class ComplianceFilesTests
     [InlineData("docs/legal-compliance.md")]
     [InlineData("docs/dependency-licenses.md")]
     [InlineData("docs/mpv-setup.md")]
+    [InlineData("docs/source-availability.md")]
+    [InlineData("docs/native-dependency-provenance.md")]
     public void RequiredComplianceFilesExist(string relativePath)
     {
         var root = FindRepositoryRoot();
