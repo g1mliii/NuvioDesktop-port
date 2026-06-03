@@ -1,5 +1,7 @@
 using System.IO;
 using System.Reflection;
+using Nuvio.Data;
+using Nuvio.Data.Sqlite;
 using Nuvio.Desktop.Services;
 using Nuvio.Platform;
 
@@ -7,8 +9,8 @@ namespace Nuvio.Desktop;
 
 /// <summary>
 /// Headless startup smoke used by packaging scripts and CI. It boots the live service
-/// graph without opening a window, reports platform, app version, and mpv/libmpv
-/// discovery to stdout, and returns process exit code 0 when the app constructs cleanly.
+/// graph against isolated storage without opening a window, reports platform, app version,
+/// and mpv/libmpv discovery to stdout, and returns process exit code 0 when the app constructs cleanly.
 /// Modeled on the <c>--fixture-data</c> arg plumbing in <see cref="App"/>.
 /// </summary>
 internal static class SelfCheck
@@ -46,7 +48,7 @@ internal static class SelfCheck
             output.WriteLine($"  OS             : {platform.Description}");
             output.WriteLine($"  Supported      : {platform.IsSupportedDesktop}");
 
-            BootServiceGraph(output);
+            BootServiceGraph(output, platform);
             ReportMpv(output);
             ReportLibMpv(output);
 
@@ -60,18 +62,48 @@ internal static class SelfCheck
         }
     }
 
-    private static void BootServiceGraph(TextWriter output)
+    private static void BootServiceGraph(TextWriter output, PlatformInfo platform)
     {
         var settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        var selfCheckRoot = CreateSelfCheckStorageRoot();
+        var paths = CreateSelfCheckPlatformPaths(platform.Family, selfCheckRoot);
         DesktopServiceHost? host = null;
         try
         {
-            host = DesktopBootstrap.BuildLive(settingsPath);
-            output.WriteLine("  Service graph  : constructed (storage, addons, catalog, cache)");
+            host = DesktopBootstrap.BuildLive(settingsPath, paths);
+            output.WriteLine("  Service graph  : constructed (isolated storage, addons, catalog, cache)");
         }
         finally
         {
             host?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            SqliteStorage.ReleasePooledConnections();
+            TryDeleteSelfCheckStorageRoot(selfCheckRoot, output);
+        }
+    }
+
+    internal static string CreateSelfCheckStorageRoot() =>
+        Path.Combine(Path.GetTempPath(), $"nuvio-self-check-{Guid.NewGuid():N}");
+
+    internal static IPlatformPaths CreateSelfCheckPlatformPaths(PlatformFamily family, string root) =>
+        PlatformPaths.For(
+            family,
+            root,
+            _ => null,
+            StoragePlan.Default.DatabaseFileName,
+            StoragePlan.Default.ImageCacheDirectoryName);
+
+    private static void TryDeleteSelfCheckStorageRoot(string root, TextWriter output)
+    {
+        try
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            output.WriteLine($"  Temp storage   : cleanup warning - {ex.Message}");
         }
     }
 

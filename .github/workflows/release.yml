@@ -23,6 +23,13 @@ jobs:
           test -f docs/source-availability.md
           test -f docs/native-dependency-provenance.md
 
+      # Restore first so the license inventory's `dotnet list package --include-transitive`
+      # graph-coverage check has a project.assets.json to read. Without it that command
+      # produces no output, the generator silently skips coverage verification, and a new
+      # uncovered dependency would slip past this release gate.
+      - name: Restore (for license graph coverage)
+        run: dotnet restore src/Nuvio.Desktop/Nuvio.Desktop.csproj
+
       - name: License inventory is current and has no unresolved rows
         run: |
           ./scripts/generate-license-inventory.sh

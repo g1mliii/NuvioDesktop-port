@@ -9,7 +9,7 @@ namespace Nuvio.Desktop.Tests.Compliance;
 public sealed class Phase8PackagingTests
 {
     // Single source of truth for what a packaged artifact must contain at its root.
-    // Mirrors scripts/lib/stage-compliance.{sh,ps1}, the csproj <None Include> block,
+    // Mirrors scripts/lib/stage-compliance.{sh,ps1} (which stages these into artifacts)
     // and the release.yml artifact-contents gate.
     public static readonly string[] RequiredArtifactFiles =
     {
@@ -51,6 +51,18 @@ public sealed class Phase8PackagingTests
     }
 
     [Fact]
+    public void DirectoryBuildProps_DerivesAssemblyAndFileVersionsFromReleaseVersion()
+    {
+        var text = ReadRepoFile("Directory.Build.props");
+
+        Assert.Contains("VersionNumericPrefix", text);
+        Assert.Contains("Regex]::Match('$(Version)'", text);
+        Assert.Contains("<AssemblyVersion>$(VersionNumericPrefix).0</AssemblyVersion>", text);
+        Assert.Contains("<FileVersion>$(VersionNumericPrefix).0</FileVersion>", text);
+        Assert.Contains("<InformationalVersion>$(Version)</InformationalVersion>", text);
+    }
+
+    [Fact]
     public void ComplianceStagingScript_ListsExactlyTheRequiredArtifactFiles()
     {
         var script = ReadRepoFile("scripts/lib/stage-compliance.sh");
@@ -79,6 +91,14 @@ public sealed class Phase8PackagingTests
         {
             // No-op by design: keeps the default suite green when no artifact is staged.
             return;
+        }
+
+        // A relative NUVIO_ARTIFACT_DIR (e.g. the release.yml gate's "artifacts/publish/linux-x64")
+        // must resolve against the repo root, not the test host's working directory — the latter
+        // is not guaranteed to be the repo root, which would make this gate non-deterministic.
+        if (!Path.IsPathRooted(artifactDir))
+        {
+            artifactDir = Path.Combine(FindRepositoryRoot(), artifactDir);
         }
 
         Assert.True(Directory.Exists(artifactDir), $"NUVIO_ARTIFACT_DIR does not exist: {artifactDir}");

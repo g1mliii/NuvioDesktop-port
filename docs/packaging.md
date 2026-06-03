@@ -36,18 +36,20 @@ trimming or single-file packaging is applied in Phase 8 — binary-size investig
 ## Versioning
 
 `Directory.Build.props` sets `VersionPrefix`/`Version`, `AssemblyVersion`, `FileVersion`,
-and `InformationalVersion`. Override at publish time with `-p:Version=0.8.1`. The
-informational version is what `--self-check` and the GPL written offer reference, and it
-is encoded in artifact file names.
+and `InformationalVersion`. Override at publish time with `-p:Version=0.8.1` or a
+pre-release such as `-p:Version=0.8.1-beta.1`. `AssemblyVersion` and `FileVersion` derive
+from the numeric prefix of `Version`, while `InformationalVersion` keeps the full release
+string. The informational version is what `--self-check` and the GPL written offer
+reference, and it is encoded in artifact file names.
 
 ## Launch/exit smoke: `--self-check`
 
 `Nuvio.Desktop --self-check` (handled in `Program.cs` before Avalonia starts, modeled on
-`--fixture-data`) boots the live service graph headlessly, prints the app version,
-platform, and mpv/libmpv discovery result, and exits 0. Packagers and `package.yml` run
-it as the smoke; a missing external mpv is reported but does not fail the check (mpv is an
-optional, externally-installed dependency). It is only executed when the published RID
-matches the host OS/arch (cross-RID publishes skip it).
+`--fixture-data`) boots the live service graph headlessly against temporary isolated
+storage, prints the app version, platform, and mpv/libmpv discovery result, and exits 0.
+Packagers and `package.yml` run it as the smoke; a missing external mpv is reported but
+does not fail the check (mpv is an optional, externally-installed dependency). It is only
+executed when the published RID matches the host OS/arch (cross-RID publishes skip it).
 
 ## Compliance staging
 
@@ -60,9 +62,8 @@ artifact (and, on macOS, into `Contents/Resources`):
 - `docs/source-availability.md`
 - `docs/native-dependency-provenance.md`
 
-The same set is copied to the build output by the `<None Include>` block in
-`Nuvio.Desktop.csproj`, asserted by the artifact-contents tests, and gated in
-`release.yml`.
+This script pair is the single source of truth for the release artifact file set. The
+artifact-contents tests and `release.yml` gate assert the same files after staging.
 
 ## License inventory
 

@@ -11,8 +11,8 @@ set -euo pipefail
 TARGET_DIR="${1:?usage: stage-compliance.sh <target-dir> [repo-root]}"
 REPO_ROOT="${2:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
-# Keep this list in sync with:
-#   - the <None Include> copy block in src/Nuvio.Desktop/Nuvio.Desktop.csproj
+# This is the single source of truth for the compliance file set in release artifacts
+# (the csproj no longer copies these to build output). Keep it in sync with:
 #   - the artifact-contents assertions in tests/Nuvio.Desktop.Tests
 #   - the release.yml artifact-contents gate
 COMPLIANCE_FILES=(

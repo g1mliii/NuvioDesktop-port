@@ -10,11 +10,14 @@
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
-    <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\NOTICE" Link="NOTICE" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\docs\dependency-licenses.md" Link="dependency-licenses.md" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\docs\source-availability.md" Link="source-availability.md" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\docs\native-dependency-provenance.md" Link="native-dependency-provenance.md" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      Compliance/legal files (LICENSE, NOTICE, dependency-licenses.md, source-availability.md,
+      native-dependency-provenance.md) are NOT copied to build output here. They are placed
+      into release artifacts by scripts/lib/stage-compliance.{sh,ps1}, the single source of
+      truth shared by every per-OS packager (and the only mechanism that can also target the
+      macOS .app Contents/Resources folder). Duplicating the list here would just create two
+      sets to keep in sync.
+    -->
   </ItemGroup>
 
   <ItemGroup>

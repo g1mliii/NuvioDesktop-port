@@ -27,6 +27,8 @@ public sealed class SqliteStorage
 
     public SqliteConnection OpenConnection() => SqliteConnectionFactory.Open(Paths.DatabasePath);
 
+    public static void ReleasePooledConnections() => SqliteConnection.ClearAllPools();
+
     private async Task InitializeAsync(CancellationToken cancellationToken)
     {
         CreateDirectories();

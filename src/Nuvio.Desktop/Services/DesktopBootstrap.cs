@@ -80,7 +80,7 @@ public sealed class DesktopServiceHost : IAsyncDisposable
 
 public static class DesktopBootstrap
 {
-    public static DesktopServiceHost BuildLive(string settingsFilePath)
+    public static DesktopServiceHost BuildLive(string settingsFilePath, IPlatformPaths? paths = null)
     {
         var diagnostics = new NetworkDiagnostics();
         var throttler = new PerHostThrottler();
@@ -89,7 +89,7 @@ public static class DesktopBootstrap
 
         var nuvioHttp = new NuvioHttpClient(httpClient, throttler, diagnostics);
 
-        var paths = PlatformPaths.Current(
+        paths ??= PlatformPaths.Current(
             StoragePlan.Default.DatabaseFileName,
             StoragePlan.Default.ImageCacheDirectoryName);
         var storage = SqliteStorage.Open(paths);
