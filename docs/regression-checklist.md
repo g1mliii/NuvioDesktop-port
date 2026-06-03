@@ -113,3 +113,30 @@
 - Deferred to the post-MVP backlog: Windows MSIX/MSI (8.4) + Authenticode, Linux AppImage (8.8) + deb/rpm (8.9), and assembly trimming/single-file (Phase 9 size investigation).
 - Windows local gate: `./scripts/verify-all.ps1`.
 - macOS/Linux gate: `.github/workflows/ci.yml` matrix or `./scripts/verify-all.sh` on each Unix target.
+
+## Phase 9 Gate
+
+- The in-app `--perf-probe` headless mode (wired in `Program.cs`, alongside `--self-check`) boots the live
+  service graph and reports cold-start, catalog-scroll, details-loop, and (gated) playback-stop scenarios as
+  JSON with `elapsedMs` + managed-heap deltas; `scripts/measure-perf.{ps1,sh}` wrap it, and `measure-startup.ps1`
+  forwards to it.
+- The CI `perf` job runs the probe on Windows, macOS, and Linux and uploads `artifacts/perf/perf.json`.
+  Absolute time/memory budgets are **report-only**; the deterministic invariants below **hard-fail** in the
+  normal `dotnet test` run.
+- Poster grid stays virtualized under stress: with 5,000 fixture items ≤ 250 `PosterCard` containers are
+  realized at the top and after scrolling to the bottom.
+- Image-cache pressure holds: `DecodedImageMemoryCache` stays at its 128-item cap with LRU eviction under a
+  1,000-key flood; `DiskImageCache` stays within its byte cap and evicts the oldest entry first.
+- Search cancellation storm: under 200 rapid-fire searches the newest result wins, no stale result overwrites
+  it, stale work is cancelled, and no task faults.
+- Player start/stop teardown: every engine is disposed across 50 fake-engine cycles with < 4 MB managed
+  growth; the gated external-mpv loop (`NUVIO_RUN_MPV_INTEGRATION=1`) leaves no orphan mpv process; the gated
+  libmpv loop (`NUVIO_RUN_LIBMPV_INTEGRATION=1`) shows no obvious managed-heap growth across 12 cycles.
+- Phase 9.7 can only be marked complete after a real-window Avalonia UI-thread/frame-time profiling note is
+  attached; realized-container bounds alone prove virtualization, not scroll-frame health.
+- Tuning decisions (9.8 image sizes/limits, 9.9 mpv cache) are recorded with evidence in
+  `docs/perf/baseline-2026-06.md`; `docs/performance-budget.md` carries measured budgets + the release gate
+  and `docs/perf/perf-report-template.md` is the before/after format. No defaults were changed without a
+  measured before/after.
+- Windows local gate: `./scripts/verify-all.ps1`.
+- macOS/Linux gate: `.github/workflows/ci.yml` matrix or `./scripts/verify-all.sh` on each Unix target.

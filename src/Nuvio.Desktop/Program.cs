@@ -19,6 +19,13 @@ sealed class Program
             return SelfCheck.Run(Console.Out);
         }
 
+        // Phase 9 performance/memory probe: boot the service graph headlessly, run scripted scenarios,
+        // and emit a JSON report without ever opening a window. Handled before Avalonia starts.
+        if (PerfProbe.IsRequested(args))
+        {
+            return PerfProbe.Run(args, Console.Out);
+        }
+
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

@@ -15,6 +15,9 @@ for path in \
   docs/player-integration.md \
   docs/mpv-setup.md \
   docs/performance-budget.md \
+  docs/perf/README.md \
+  docs/perf/perf-report-template.md \
+  docs/perf/baseline-2026-06.md \
   docs/regression-checklist.md \
   docs/phase-1-behavior-mapping.md \
   docs/player-parity-notes.md \

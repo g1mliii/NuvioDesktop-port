@@ -88,8 +88,12 @@ public sealed class LibMpvEngineIntegrationTests
         }
     }
 
+    // Phase 9 (9.5 / 9.12): teardown stress. A longer create/dispose loop must not throw and must not leak
+    // managed memory (the engine wrapper, P/Invoke GC handles, event channels) across cycles. We assert on
+    // the managed heap rather than process working set: GC.GetTotalMemory after a full collect is
+    // deterministic, whereas WorkingSet64 swings with the allocator/JIT/native decode buffers and flakes.
     [Fact]
-    public async Task LibMpvEngine_RepeatedCreateDispose_DoesNotThrow_WhenEnabled()
+    public async Task LibMpvEngine_RepeatedCreateDispose_DoesNotThrowOrLeak_WhenEnabled()
     {
         if (!Enabled)
         {
@@ -108,14 +112,36 @@ public sealed class LibMpvEngineIntegrationTests
             }
         };
 
-        for (var iteration = 0; iteration < 5; iteration++)
+        // Warm up once so first-load JIT/allocations don't count as "growth".
+        await CreatePlayDisposeAsync(options);
+        var baseline = SettledManagedBytes();
+
+        for (var iteration = 0; iteration < 12; iteration++)
         {
-            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            var engine = new LibMpvEngine();
-            await engine.InitializeAsync(options, cancellation.Token);
-            await engine.PlayAsync(cancellation.Token);
-            await engine.DisposeAsync();
+            await CreatePlayDisposeAsync(options);
         }
+
+        var growth = SettledManagedBytes() - baseline;
+        // Generous bound: catches a gross managed leak across 12 cycles (which would grow roughly linearly)
+        // without flaking on normal allocator noise.
+        Assert.True(growth < 16L * 1024 * 1024, $"libmpv create/dispose managed heap grew {growth} bytes across 12 cycles");
+    }
+
+    private static long SettledManagedBytes()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        return GC.GetTotalMemory(forceFullCollection: true);
+    }
+
+    private static async Task CreatePlayDisposeAsync(PlayerOptions options)
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var engine = new LibMpvEngine();
+        await engine.InitializeAsync(options, cancellation.Token);
+        await engine.PlayAsync(cancellation.Token);
+        await engine.DisposeAsync();
     }
 
     private static string CreateGeneratedWavFixture()

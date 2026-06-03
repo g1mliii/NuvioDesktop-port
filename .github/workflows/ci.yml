@@ -53,3 +53,29 @@ jobs:
               throw "Missing required compliance file: $path"
             }
           }
+
+  perf:
+    name: perf (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    # Phase 9 report-only performance probe: captures cold-start / catalog-scroll / details-loop managed-heap
+    # + timing baselines per OS and uploads them. Absolute budgets are NOT enforced here (deterministic
+    # virtualization/cache/teardown invariants hard-fail in the build-test job instead).
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build src/Nuvio.Desktop/Nuvio.Desktop.csproj -c Release
+      - name: Run perf probe
+        run: dotnet run --project src/Nuvio.Desktop/Nuvio.Desktop.csproj -c Release --no-build -- --perf-probe --perf-out artifacts/perf/perf-${{ matrix.os }}.json
+      - name: Upload perf report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ matrix.os }}
+          path: artifacts/perf/
