@@ -7,4 +7,21 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
+
+  <!--
+    Phase 8 versioning. The release version is set here and is overridable from the
+    command line at publish time, e.g. `dotnet publish -p:Version=0.8.1`. The packaging
+    scripts read this same default so artifact file names and the in-app version stay in
+    sync. Assembly/file versions stay numeric (no pre-release suffix); the informational
+    version carries the full version string surfaced by the self-check startup path.
+  -->
+  <PropertyGroup>
+    <VersionPrefix>0.8.0</VersionPrefix>
+    <Version Condition="'$(Version)' == ''">$(VersionPrefix)</Version>
+    <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
+    <FileVersion>$(VersionPrefix).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <Product>Nuvio Desktop</Product>
+    <Company>Nuvio Desktop project</Company>
+  </PropertyGroup>
 </Project>

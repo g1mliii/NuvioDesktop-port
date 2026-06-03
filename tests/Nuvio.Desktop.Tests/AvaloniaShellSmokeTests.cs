@@ -162,11 +162,16 @@ public sealed class AvaloniaShellSmokeTests
             engineFactory.Engine.WriteEvent(new PlayerEvent.PlayerLog($"log {index}", DateTimeOffset.UtcNow));
         }
 
-        await Task.Delay(500);
+        // Wait for the coalescer to drain the 60 queued events and dispatch the latest values,
+        // rather than racing a fixed delay against the async observe loop (flaky under CI load).
+        await WaitForConditionAsync(() =>
+            viewModel.Position == TimeSpan.FromSeconds(29) && viewModel.Status == "log 29");
 
         Assert.Equal(TimeSpan.FromSeconds(29), viewModel.Position);
         Assert.Equal("log 29", viewModel.Status);
-        Assert.InRange(uiDispatchCount, 1, 6);
+        // The 60 high-frequency events must collapse into only a handful of UI dispatches; the exact
+        // count depends on how many 250ms coalescing windows the drain spans, so allow a small range.
+        Assert.InRange(uiDispatchCount, 1, 12);
         await viewModel.DisposeAsync();
     }
 

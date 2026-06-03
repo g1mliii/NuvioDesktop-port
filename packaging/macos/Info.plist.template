@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template for the macOS .app bundle Info.plist. scripts/package-macos.sh renders this
+  into Contents/Info.plist, substituting @VERSION@ with the release version.
+-->
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Nuvio Desktop</string>
+    <key>CFBundleDisplayName</key>
+    <string>Nuvio Desktop</string>
+    <key>CFBundleIdentifier</key>
+    <string>site.anchored.nuviodesktop</string>
+    <key>CFBundleVersion</key>
+    <string>@VERSION@</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@VERSION@</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>Nuvio.Desktop</string>
+    <key>CFBundleIconFile</key>
+    <string>nuvio.icns</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.entertainment</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>GPL-3.0-or-later. See LICENSE.</string>
+</dict>
+</plist>

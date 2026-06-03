@@ -13,6 +13,8 @@
     <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\NOTICE" Link="NOTICE" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\docs\dependency-licenses.md" Link="dependency-licenses.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\docs\source-availability.md" Link="source-availability.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\docs\native-dependency-provenance.md" Link="native-dependency-provenance.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
