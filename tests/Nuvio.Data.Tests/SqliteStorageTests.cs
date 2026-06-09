@@ -29,7 +29,7 @@ public sealed class SqliteStorageTests
         Assert.Equal(6L, (long)command.ExecuteScalar()!);
 
         command.CommandText = "SELECT COUNT(*) FROM schema_migrations;";
-        Assert.Equal(1L, (long)command.ExecuteScalar()!);
+        Assert.Equal(2L, (long)command.ExecuteScalar()!);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class SqliteStorageTests
 
         var brokenRunner = new SqliteMigrationRunner(
         [
-            new SqliteMigration(2, "002_broken", "CREATE TABLE broken_table (")
+            new SqliteMigration(3, "003_broken", "CREATE TABLE broken_table (")
         ]);
 
         Assert.Throws<SqliteException>(() => SqliteStorage.Open(paths, brokenRunner));
@@ -66,7 +66,7 @@ public sealed class SqliteStorageTests
         using var connection = storage.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM schema_migrations;";
-        Assert.Equal(1L, (long)command.ExecuteScalar()!);
+        Assert.Equal(2L, (long)command.ExecuteScalar()!);
     }
 
     [Fact]
@@ -88,6 +88,33 @@ public sealed class SqliteStorageTests
         await store.SaveAsync(settings, CancellationToken.None);
 
         Assert.Equal(settings.Normalize(), await store.LoadAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HomeCatalogSettings_RoundTripsThroughSettingsTable()
+    {
+        using var paths = TempPlatformPaths.Create();
+        var store = new SqliteSettingsStore(SqliteStorage.Open(paths));
+
+        Assert.Equal(HomeCatalogSettings.Default, await store.LoadHomeCatalogSettingsAsync(CancellationToken.None));
+
+        var settings = new HomeCatalogSettings
+        {
+            HeroEnabled = false,
+            Preferences =
+            [
+                new HomeCatalogPreference("a:movie:top", 0, Enabled: true, CustomTitle: "My Rail", HeroSourceEnabled: false),
+                new HomeCatalogPreference("b:series:trending", 1, Enabled: false),
+            ]
+        };
+        await store.SaveHomeCatalogSettingsAsync(settings, CancellationToken.None);
+
+        var loaded = await store.LoadHomeCatalogSettingsAsync(CancellationToken.None);
+        Assert.False(loaded.HeroEnabled);
+        Assert.Equal(2, loaded.Preferences.Count);
+        Assert.Equal("My Rail", loaded.Find("a:movie:top")!.CustomTitle);
+        Assert.False(loaded.Find("a:movie:top")!.HeroSourceEnabled);
+        Assert.False(loaded.Find("b:series:trending")!.Enabled);
     }
 
     [Fact]
@@ -136,6 +163,71 @@ public sealed class SqliteStorageTests
         Assert.NotNull(loaded);
         Assert.Equal(50d, loaded.Percent, precision: 3);
         Assert.Single(await repository.RecentAsync(10, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Migration_V2_AppliesOnV1DatabaseWithoutDataLoss()
+    {
+        using var paths = TempPlatformPaths.Create();
+
+        // Open with only migration v1 to simulate a pre-Phase-11 database, then insert a legacy row
+        // (no display columns).
+        var defaultRunner = new SqliteMigrationRunner();
+        var v1Only = new SqliteMigrationRunner(defaultRunner.Migrations.Where(m => m.Version == 1).ToArray());
+        var v1Storage = SqliteStorage.Open(paths, v1Only);
+        using (var connection = v1Storage.OpenConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO watch_progress(media_id, episode_id, position_ms, duration_ms, percent, updated_at)
+                VALUES ('legacy-1', '', 60000, 600000, 10, $updated_at);
+                """;
+            command.Parameters.AddWithValue("$updated_at", DateTimeOffset.UtcNow.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        // Reopen with the default runner so migration v2 applies additively.
+        var migrated = SqliteStorage.Open(paths);
+        var loaded = await new SqliteWatchProgressRepository(migrated).GetAsync("legacy-1", null, CancellationToken.None);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(TimeSpan.FromMinutes(1), loaded.Position);
+        Assert.Equal(TimeSpan.FromMinutes(10), loaded.Duration);
+        // New columns are NULL for legacy rows, so display metadata reads back as null.
+        Assert.Null(loaded.MediaType);
+        Assert.Null(loaded.Title);
+        Assert.Null(loaded.PosterUrl);
+        Assert.Null(loaded.BackgroundUrl);
+    }
+
+    [Fact]
+    public async Task WatchProgress_DisplayColumnsRoundTrip()
+    {
+        using var paths = TempPlatformPaths.Create();
+        var repository = new SqliteWatchProgressRepository(SqliteStorage.Open(paths));
+
+        var progress = new WatchProgress(
+            "series-7",
+            "s1e2",
+            TimeSpan.FromMinutes(5),
+            TimeSpan.FromMinutes(20),
+            0,
+            DateTimeOffset.UtcNow,
+            MediaType: "series",
+            Title: "My Show",
+            PosterUrl: new Uri("https://images.example.test/poster.jpg"),
+            BackgroundUrl: new Uri("https://images.example.test/backdrop.jpg"));
+        await repository.UpsertAsync(progress, CancellationToken.None);
+
+        var loaded = await repository.GetAsync("series-7", "s1e2", CancellationToken.None);
+        Assert.NotNull(loaded);
+        Assert.Equal("series", loaded.MediaType);
+        Assert.Equal("My Show", loaded.Title);
+        Assert.Equal(progress.PosterUrl, loaded.PosterUrl);
+        Assert.Equal(progress.BackgroundUrl, loaded.BackgroundUrl);
+
+        var recent = await repository.RecentAsync(10, CancellationToken.None);
+        Assert.Contains(recent, p => p.Title == "My Show" && p.PosterUrl == progress.PosterUrl);
     }
 
     [Fact]

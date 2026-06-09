@@ -1,8 +1,11 @@
 # Nuvio Desktop
 
+> **Status: archived / paused — June 2026.**
+> This is a cross-platform (Windows/macOS/Linux) **Avalonia + C#/.NET** port of Nuvio built around **mpv/libmpv** playback. In June 2026 the official team shipped [**NuvioMedia/NuvioDesktop**](https://github.com/NuvioMedia/NuvioDesktop) — a native (Kotlin/Compose Multiplatform) cross-platform desktop app with libmpv playback — which occupies the same niche this port targeted. Rather than maintain a parallel client against upstream, this repository is parked as a **.NET/Avalonia architecture reference**, not a maintained product. **New users should use the official app.**
+
 Nuvio Desktop is a cross-platform desktop port of Nuvio for Windows, macOS, and Linux. The implementation plan chooses Avalonia + C#/.NET for the app shell, SQLite for local state, and mpv/libmpv for playback.
 
-This repository has completed the Phase 0 scaffold and now includes the Phase 1 Core behavior-mapping foundation: fixture-backed addon, stream, metadata, progress, and redaction models without live playback or UI feature work.
+Development reached roughly **Phase 9** (external + embedded mpv behind `IPlayerEngine`, SQLite storage/cache, packaging, and performance hardening) with **Phase 11** home/visual-parity work in progress when it was paused. The full phase breakdown, a June 2026 competitor-parity audit, and the remaining backlog (Phases 11–13) live in `nuvio_desktop_cross_platform_implementation_plan.md`.
 
 ## Requirements
 

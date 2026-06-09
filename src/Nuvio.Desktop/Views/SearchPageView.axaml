@@ -50,6 +50,8 @@
                                                          Title="{Binding Name}"
                                                          Subtitle="{Binding ReleaseInfo}"
                                                          Initial="{Binding PosterInitial}"
+                                                         PosterImage="{Binding PosterImage}"
+                                                         ShowInitial="{Binding ShowInitial}"
                                                          Command="{Binding OpenCommand}"
                                                          CommandParameter="{Binding Item}"
                                                          AutomationProperties.Name="{Binding Name}"

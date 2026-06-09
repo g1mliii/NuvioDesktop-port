@@ -164,6 +164,13 @@ public sealed class MpvProcessLocator
         yield return @"C:\Program Files (x86)\mpv\mpv.exe";
         yield return @"C:\mpv\mpv.exe";
 
+        // mpv's own config-directory convention on Windows (%APPDATA%\mpv, %LOCALAPPDATA%\mpv) is also
+        // where MPV Manager and portable installs commonly drop mpv.exe, so probe it directly.
+        foreach (var root in NonEmpty(_environment.ApplicationDataDirectory, _environment.LocalApplicationDataDirectory))
+        {
+            yield return Join(root, "mpv", "mpv.exe");
+        }
+
         foreach (var root in NonEmpty(_environment.LocalApplicationDataDirectory, _environment.UserProfileDirectory))
         {
             yield return Join(root, "Programs", "mpv", "mpv.exe");

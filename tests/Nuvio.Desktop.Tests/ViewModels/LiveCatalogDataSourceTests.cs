@@ -122,7 +122,7 @@ public sealed class LiveCatalogDataSourceTests
 
         public StubCatalogService(IReadOnlyList<CatalogItem> items) => _items = items;
 
-        public Task<CatalogPage> BrowseAsync(string addonId, string type, string catalogId, int skip, CancellationToken cancellationToken) =>
+        public Task<CatalogPage> BrowseAsync(string addonId, string type, string catalogId, int skip, CancellationToken cancellationToken, string? genre = null) =>
             Task.FromResult(new CatalogPage(addonId, addonId, type, catalogId, skip, _items));
 
         public Task<IReadOnlyList<CatalogItem>> SearchAsync(string query, IReadOnlyList<string>? types, CancellationToken cancellationToken) =>
@@ -130,6 +130,15 @@ public sealed class LiveCatalogDataSourceTests
 
         public Task<IReadOnlyList<CatalogRail>> HomeRailsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<CatalogRail>>(Array.Empty<CatalogRail>());
+
+        public async IAsyncEnumerable<CatalogRail> StreamHomeRailsAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            foreach (var rail in await HomeRailsAsync(cancellationToken))
+            {
+                yield return rail;
+            }
+        }
     }
 
     private sealed class StubMetadataService : IMetadataService

@@ -31,7 +31,8 @@ public sealed class CatalogService : ICatalogService
         string type,
         string catalogId,
         int skip,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? genre = null)
     {
         if (skip < 0)
         {
@@ -50,7 +51,7 @@ public sealed class CatalogService : ICatalogService
             throw new NuvioValidationException($"Addon '{addonId}' has no manifest.");
         }
 
-        var items = await FetchCatalogAsync(addon, type, catalogId, skip, cancellationToken).ConfigureAwait(false);
+        var items = await FetchCatalogAsync(addon, type, catalogId, skip, cancellationToken, genre).ConfigureAwait(false);
         return new CatalogPage(addon.Id, addon.DisplayName, type, catalogId, skip, items);
     }
 
@@ -122,26 +123,9 @@ public sealed class CatalogService : ICatalogService
     public async Task<IReadOnlyList<CatalogRail>> HomeRailsAsync(CancellationToken cancellationToken)
     {
         var addons = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
-        var candidates = new List<(CatalogService Service, ManagedAddon Addon, AddonCatalog Catalog)>();
-        foreach (var addon in addons)
-        {
-            if (!addon.Enabled || addon.Manifest is null)
-            {
-                continue;
-            }
-
-            var homeCatalog = addon.Manifest.Catalogs.FirstOrDefault(catalog =>
-                !catalog.Extra.Any(extra =>
-                    extra.IsRequired &&
-                    !extra.Name.Equals("skip", StringComparison.OrdinalIgnoreCase) &&
-                    !extra.Name.Equals("limit", StringComparison.OrdinalIgnoreCase)));
-            if (homeCatalog is null)
-            {
-                continue;
-            }
-
-            candidates.Add((this, addon, homeCatalog));
-        }
+        var candidates = BuildHomeCandidates(addons)
+            .Select(candidate => (Service: this, candidate.Addon, candidate.Catalog))
+            .ToArray();
 
         var rails = await AddonFanOut
             .WhenAllAsync(
@@ -152,6 +136,76 @@ public sealed class CatalogService : ICatalogService
             .ConfigureAwait(false);
         return rails.Where(rail => rail is not null).Select(rail => rail!).ToArray();
     }
+
+    public async IAsyncEnumerable<CatalogRail> StreamHomeRailsAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var addons = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var candidates = BuildHomeCandidates(addons);
+
+        // Fetch in bounded batches so Home can paint incrementally (progressive publish, parity with
+        // upstream HomeRepository.refresh) instead of awaiting every addon before showing anything.
+        foreach (var batch in candidates.Chunk(HomeRailDefaults.CatalogFetchBatchSize))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fetches = batch
+                .Select(candidate => SafeRailAsync(candidate.Addon, candidate.Catalog, cancellationToken))
+                .ToArray();
+            var rails = await Task.WhenAll(fetches).ConfigureAwait(false);
+            foreach (var rail in rails)
+            {
+                if (rail is not null)
+                {
+                    yield return rail;
+                }
+            }
+        }
+    }
+
+    private static List<(ManagedAddon Addon, AddonCatalog Catalog)> BuildHomeCandidates(
+        IReadOnlyList<ManagedAddon> addons)
+    {
+        var candidates = new List<(ManagedAddon Addon, AddonCatalog Catalog)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var addon in addons)
+        {
+            if (!addon.Enabled || addon.Manifest is null)
+            {
+                continue;
+            }
+
+            // One rail per eligible catalog (not just the first): a multi-catalog manifest like
+            // Cinemeta should surface Popular, Top, etc. as separate rails. Dedupe by manifest:type:catalog.
+            foreach (var catalog in addon.Manifest.Catalogs)
+            {
+                if (!IsHomeEligible(catalog))
+                {
+                    continue;
+                }
+
+                if (!seen.Add($"{addon.Id}:{catalog.Type}:{catalog.Id}"))
+                {
+                    continue;
+                }
+
+                candidates.Add((addon, catalog));
+            }
+        }
+
+        return candidates;
+    }
+
+    /// <summary>
+    /// Home-eligible catalogs are those needing no required extra other than the desktop-exempted
+    /// paging hints (skip/limit). This mirrors LiveCatalogDataSource.ResolveBrowseSelectionAsync so
+    /// Home and Catalog browse agree. (Upstream is strict <c>.none { isRequired }</c>; the skip/limit
+    /// exemption is a deliberate, more-permissive desktop choice — see phase-1-behavior-mapping.)
+    /// </summary>
+    public static bool IsHomeEligible(AddonCatalog catalog) =>
+        !catalog.Extra.Any(extra =>
+            extra.IsRequired &&
+            !extra.Name.Equals("skip", StringComparison.OrdinalIgnoreCase) &&
+            !extra.Name.Equals("limit", StringComparison.OrdinalIgnoreCase));
 
     private async Task<IReadOnlyList<CatalogItem>> SafeSearchAsync(
         ManagedAddon addon,
@@ -184,10 +238,15 @@ public sealed class CatalogService : ICatalogService
                 return null;
             }
 
+            if (items.Count > HomeRailDefaults.CatalogPreviewFetchLimit)
+            {
+                items = items.Take(HomeRailDefaults.CatalogPreviewFetchLimit).ToArray();
+            }
+
             return new CatalogRail(
                 AddonId: addon.Id,
                 AddonName: addon.DisplayName,
-                Title: $"{addon.DisplayName} — {catalog.Name}",
+                Title: $"{catalog.Name} — {MediaTypeLabel.ForType(catalog.Type)}",
                 Type: catalog.Type,
                 CatalogId: catalog.Id,
                 Items: items);
@@ -204,9 +263,10 @@ public sealed class CatalogService : ICatalogService
         string type,
         string catalogId,
         int skip,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? genre = null)
     {
-        var uri = BuildCatalogUri(addon, type, catalogId, skip, query: null);
+        var uri = BuildCatalogUri(addon, type, catalogId, skip, query: null, genre);
         return await FetchAndParseAsync(addon, uri, "catalog", cancellationToken).ConfigureAwait(false);
     }
 
@@ -227,12 +287,23 @@ public sealed class CatalogService : ICatalogService
         return MediaPayloadParser.ParseCatalogItems(response.Body);
     }
 
-    internal static Uri BuildCatalogUri(ManagedAddon addon, string type, string catalogId, int skip, string? query)
+    internal static Uri BuildCatalogUri(
+        ManagedAddon addon,
+        string type,
+        string catalogId,
+        int skip,
+        string? query,
+        string? genre = null)
     {
         List<string>? extras = null;
         if (!string.IsNullOrEmpty(query))
         {
             (extras ??= []).Add($"search={Uri.EscapeDataString(query)}");
+        }
+
+        if (!string.IsNullOrEmpty(genre))
+        {
+            (extras ??= []).Add($"genre={Uri.EscapeDataString(genre)}");
         }
 
         if (skip > 0)

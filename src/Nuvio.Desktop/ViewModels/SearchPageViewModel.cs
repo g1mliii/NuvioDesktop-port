@@ -10,6 +10,7 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
     private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(150);
     private readonly ICatalogDataSource _dataSource;
     private readonly IAsyncRelayCommand<CatalogItem> _openDetailsCommand;
+    private readonly IDesktopImageLoader? _imageLoader;
     private CancellationTokenSource? _searchCancellation;
     private string _searchText = string.Empty;
     private bool _isLoading;
@@ -18,10 +19,14 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
     private int _searchGeneration;
     private int _isDisposed;
 
-    public SearchPageViewModel(ICatalogDataSource dataSource, Func<CatalogItem, Task> openDetailsAsync)
+    public SearchPageViewModel(
+        ICatalogDataSource dataSource,
+        Func<CatalogItem, Task> openDetailsAsync,
+        IDesktopImageLoader? imageLoader = null)
     {
         _dataSource = dataSource;
         _openDetailsCommand = PosterGridBuilder.CreateOpenCommand(openDetailsAsync);
+        _imageLoader = imageLoader;
     }
 
     public ObservableCollection<PosterGridRowViewModel> Rows { get; } = [];
@@ -118,7 +123,7 @@ public sealed class SearchPageViewModel : ViewModelBase, IDisposable
             }
 
             Rows.Clear();
-            foreach (var row in PosterGridBuilder.BuildRows(results, _openDetailsCommand))
+            foreach (var row in PosterGridBuilder.BuildRows(results, _openDetailsCommand, imageLoader: _imageLoader))
             {
                 Rows.Add(row);
             }

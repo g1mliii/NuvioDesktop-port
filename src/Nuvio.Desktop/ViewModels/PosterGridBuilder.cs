@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Nuvio.Core.Models;
+using Nuvio.Desktop.Services;
 using System.Windows.Input;
 
 namespace Nuvio.Desktop.ViewModels;
@@ -11,7 +12,8 @@ public static class PosterGridBuilder
     public static IReadOnlyList<PosterGridRowViewModel> BuildRows(
         IReadOnlyList<CatalogItem> items,
         ICommand openCommand,
-        int columns = DefaultColumns)
+        int columns = DefaultColumns,
+        IDesktopImageLoader? imageLoader = null)
     {
         if (columns <= 0)
         {
@@ -21,7 +23,7 @@ public static class PosterGridBuilder
         var rows = new List<PosterGridRowViewModel>();
         foreach (var chunk in items.Chunk(columns))
         {
-            rows.Add(new PosterGridRowViewModel(chunk.ToArray(), openCommand));
+            rows.Add(new PosterGridRowViewModel(chunk.ToArray(), openCommand, imageLoader));
         }
 
         return rows;
@@ -29,9 +31,10 @@ public static class PosterGridBuilder
 
     public static IReadOnlyList<PosterCardViewModel> BuildCards(
         IReadOnlyList<CatalogItem> items,
-        ICommand openCommand)
+        ICommand openCommand,
+        IDesktopImageLoader? imageLoader = null)
     {
-        return items.Select(item => CreateCard(item, openCommand)).ToArray();
+        return items.Select(item => CreateCard(item, openCommand, imageLoader)).ToArray();
     }
 
     public static IAsyncRelayCommand<CatalogItem> CreateOpenCommand(Func<CatalogItem, Task> openDetailsAsync)
@@ -40,8 +43,11 @@ public static class PosterGridBuilder
             item is null ? Task.CompletedTask : openDetailsAsync(item));
     }
 
-    private static PosterCardViewModel CreateCard(CatalogItem item, ICommand openCommand)
+    private static PosterCardViewModel CreateCard(
+        CatalogItem item,
+        ICommand openCommand,
+        IDesktopImageLoader? imageLoader)
     {
-        return new PosterCardViewModel(item, openCommand);
+        return new PosterCardViewModel(item, openCommand, imageLoader);
     }
 }

@@ -8,11 +8,10 @@ public static class RedirectPolicy
 
     public static void Validate(Uri original, Uri target, string resourceLabel)
     {
-        if (!string.Equals(original.Host, target.Host, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new NuvioValidationException($"{resourceLabel} redirect changed host; rejecting.");
-        }
-
+        // Cross-host redirects are permitted: real addons (Cinemeta and friends) redirect to
+        // CDN/Cloudflare hosts. The caller validates every redirect target with
+        // AddonUrlPolicy.ValidateRemoteUri (HTTPS-only, public host) before reaching here, and the
+        // redirect count is capped, so following a validated cross-host HTTPS hop is safe.
         if (original.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
             !target.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
         {

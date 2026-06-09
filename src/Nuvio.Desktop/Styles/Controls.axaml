@@ -58,14 +58,33 @@
                         CornerRadius="{TemplateBinding CornerRadius}"
                         ClipToBounds="True">
                     <Grid RowDefinitions="*,Auto">
-                        <Border Background="{DynamicResource SurfaceHighlightBrush}" CornerRadius="7,7,0,0">
-                            <TextBlock Text="{TemplateBinding Initial}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentBrush}"
-                                       FontSize="44"
-                                       FontWeight="SemiBold"/>
-                        </Border>
+                        <Panel>
+                            <Border Background="{DynamicResource SurfaceHighlightBrush}" CornerRadius="7,7,0,0">
+                                <TextBlock Text="{TemplateBinding Initial}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           FontSize="44"
+                                           FontWeight="SemiBold"
+                                           IsVisible="{TemplateBinding ShowInitial}"/>
+                            </Border>
+                            <!-- Real poster art (decoded on realize). When null nothing renders and the
+                                 initial above stays visible; UniformToFill covers it once loaded. -->
+                            <Image Source="{TemplateBinding PosterImage}"
+                                   Stretch="UniformToFill"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"/>
+                            <!-- Continue Watching progress bar overlay. -->
+                            <ProgressBar VerticalAlignment="Bottom"
+                                         Height="4"
+                                         Minimum="0"
+                                         Maximum="1"
+                                         Value="{TemplateBinding Progress}"
+                                         IsVisible="{TemplateBinding ShowProgress}"
+                                         Foreground="{DynamicResource AccentBrush}"
+                                         Background="#66000000"
+                                         CornerRadius="0"/>
+                        </Panel>
                         <Border Grid.Row="1" Padding="8,7">
                             <StackPanel Spacing="2">
                                 <TextBlock Text="{TemplateBinding Title}"

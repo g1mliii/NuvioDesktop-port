@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using Nuvio.Core.Addons;
+using Nuvio.Core.Media;
 using Nuvio.Core.Models;
 using Nuvio.Core.Services;
 using Nuvio.Core.Validation;
@@ -15,6 +17,7 @@ public sealed class LiveCatalogDataSource : ICatalogDataSource
     private string? _activeBrowseAddonId;
     private string? _activeBrowseType;
     private string? _activeBrowseCatalogId;
+    private string? _activeGenre;
 
     public LiveCatalogDataSource(
         IAddonRepository repository,
@@ -33,7 +36,74 @@ public sealed class LiveCatalogDataSource : ICatalogDataSource
     public async Task<IReadOnlyList<DesktopHomeRail>> GetHomeRailsAsync(CancellationToken cancellationToken)
     {
         var rails = await _catalogService.HomeRailsAsync(cancellationToken).ConfigureAwait(false);
-        return rails.Select(rail => new DesktopHomeRail(rail.Title, rail.Items)).ToArray();
+        return rails.Select(ToRail).ToArray();
+    }
+
+    public async IAsyncEnumerable<DesktopHomeRail> StreamHomeRailsAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var rail in _catalogService.StreamHomeRailsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yield return ToRail(rail);
+        }
+    }
+
+    public async Task<bool> HasCatalogCapableAddonsAsync(CancellationToken cancellationToken)
+    {
+        var addons = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
+        return addons.Any(addon =>
+            addon.Enabled &&
+            addon.Manifest is not null &&
+            addon.Manifest.Catalogs.Any(CatalogService.IsHomeEligible));
+    }
+
+    public async Task<IReadOnlyList<DesktopCatalogChoice>> GetCatalogChoicesAsync(CancellationToken cancellationToken)
+    {
+        var addons = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var choices = new List<DesktopCatalogChoice>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var addon in addons)
+        {
+            if (!addon.Enabled || addon.Manifest is null)
+            {
+                continue;
+            }
+
+            foreach (var catalog in addon.Manifest.Catalogs)
+            {
+                if (!CatalogService.IsHomeEligible(catalog))
+                {
+                    continue;
+                }
+
+                if (!seen.Add($"{addon.Id}:{catalog.Type}:{catalog.Id}"))
+                {
+                    continue;
+                }
+
+                var genres = catalog.Extra
+                    .FirstOrDefault(extra => extra.Name.Equals("genre", StringComparison.OrdinalIgnoreCase))?
+                    .Options ?? Array.Empty<string>();
+                choices.Add(new DesktopCatalogChoice(
+                    AddonId: addon.Id,
+                    AddonName: addon.DisplayName,
+                    Type: catalog.Type,
+                    CatalogId: catalog.Id,
+                    DisplayName: $"{catalog.Name} — {MediaTypeLabel.ForType(catalog.Type)}",
+                    Genres: genres));
+            }
+        }
+
+        return choices;
+    }
+
+    public void SelectCatalog(DesktopCatalogChoice choice, string? genre)
+    {
+        ArgumentNullException.ThrowIfNull(choice);
+        _activeBrowseAddonId = choice.AddonId;
+        _activeBrowseType = choice.Type;
+        _activeBrowseCatalogId = choice.CatalogId;
+        _activeGenre = string.IsNullOrWhiteSpace(genre) ? null : genre;
     }
 
     public async Task<DesktopCatalogPage> GetCatalogPageAsync(int skip, CancellationToken cancellationToken)
@@ -49,7 +119,8 @@ public sealed class LiveCatalogDataSource : ICatalogDataSource
             selection.Value.Type,
             selection.Value.CatalogId,
             skip,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            _activeGenre).ConfigureAwait(false);
 
         var hasMore = page.Items.Count >= ICatalogService.PageSize;
         return new DesktopCatalogPage(page.Items, hasMore, skip + page.Items.Count);
@@ -104,6 +175,16 @@ public sealed class LiveCatalogDataSource : ICatalogDataSource
         return new FixtureDetailState(details, streamItems, failedProviders);
     }
 
+    private static DesktopHomeRail ToRail(CatalogRail rail) =>
+        new(
+            Title: rail.Title,
+            Items: rail.Items,
+            Key: $"{rail.AddonId}:{rail.Type}:{rail.CatalogId}",
+            AddonId: rail.AddonId,
+            AddonName: rail.AddonName,
+            Type: rail.Type,
+            CatalogId: rail.CatalogId);
+
     private async Task<(string AddonId, string Type, string CatalogId)?> ResolveBrowseSelectionAsync(CancellationToken cancellationToken)
     {
         if (_activeBrowseAddonId is not null && _activeBrowseType is not null && _activeBrowseCatalogId is not null)
@@ -119,10 +200,7 @@ public sealed class LiveCatalogDataSource : ICatalogDataSource
                 continue;
             }
 
-            var catalog = addon.Manifest.Catalogs.FirstOrDefault(item =>
-                !item.Extra.Any(extra => extra.IsRequired &&
-                    !extra.Name.Equals("skip", StringComparison.OrdinalIgnoreCase) &&
-                    !extra.Name.Equals("limit", StringComparison.OrdinalIgnoreCase)));
+            var catalog = addon.Manifest.Catalogs.FirstOrDefault(CatalogService.IsHomeEligible);
             if (catalog is null)
             {
                 continue;

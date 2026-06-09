@@ -14,6 +14,10 @@ public sealed class PlayerProgressRecorder : IPlayerProgressRecorder
     private readonly SemaphoreSlim _gate = new(1, 1);
     private string? _mediaId;
     private string? _episodeId;
+    private string? _mediaType;
+    private string? _title;
+    private Uri? _posterUrl;
+    private Uri? _backgroundUrl;
     private TimeSpan _position;
     private TimeSpan _duration;
     private bool _hasPosition;
@@ -42,6 +46,10 @@ public sealed class PlayerProgressRecorder : IPlayerProgressRecorder
             ResetLocked();
             _mediaId = details.Id;
             _episodeId = episodeId;
+            _mediaType = details.Type;
+            _title = details.Name;
+            _posterUrl = details.PosterUrl;
+            _backgroundUrl = details.BackgroundUrl;
         }
         finally
         {
@@ -115,6 +123,10 @@ public sealed class PlayerProgressRecorder : IPlayerProgressRecorder
     {
         _mediaId = null;
         _episodeId = null;
+        _mediaType = null;
+        _title = null;
+        _posterUrl = null;
+        _backgroundUrl = null;
         _position = TimeSpan.Zero;
         _duration = TimeSpan.Zero;
         _hasPosition = false;
@@ -154,7 +166,17 @@ public sealed class PlayerProgressRecorder : IPlayerProgressRecorder
             ? Math.Clamp(_position.TotalMilliseconds / _duration.TotalMilliseconds * 100d, 0d, 100d)
             : 0d;
         var progress = WatchProgressRules.Normalize(
-            new WatchProgress(_mediaId, _episodeId, _position, _duration, percent, now),
+            new WatchProgress(
+                _mediaId,
+                _episodeId,
+                _position,
+                _duration,
+                percent,
+                now,
+                MediaType: _mediaType,
+                Title: _title,
+                PosterUrl: _posterUrl,
+                BackgroundUrl: _backgroundUrl),
             isEnded);
 
         if (WatchProgressRules.ShouldStoreProgress(progress.Position, progress.Duration))

@@ -478,6 +478,33 @@ This plan was audited after Phase 0 repo scaffolding. The overall stack and phas
 - Keep C#/.NET + Avalonia as the whole-plan primary stack. Rust was evaluated and should remain limited to a future helper or native interop module unless Avalonia fails a concrete cross-platform gate.
 - Do not use Tauri while the no browser-shell runtime rule remains active, because WebView-based desktop shells are outside the accepted runtime model.
 
+## Competitor Parity Audit (June 2026)
+
+Three community Windows ports were reviewed as free parity references (all GPL-3.0, the same licence family as this fork). They are **Windows-only**, so none replaces this plan's cross-platform/native goal, but each is further along on UI polish and feature breadth and is treated as a **spec source, not a fork base**.
+
+| Port | Stack | Use as reference for |
+|---|---|---|
+| `wifi-x-smasher/nuvio-windows-unofficial` | Kotlin/Compose MP, MPV + VLC fallback | TV-style layout, stream badges, debrid, trailers |
+| `CreepsoOff/NuvioDesktop` | Kotlin/Compose MP | Most active fork; real-world bug surfacing |
+| `Davako94/nuvio-desktop` | Tauri (React/TS + Rust) + mpv | UI/UX inspiration only; Tauri is a WebView shell and is **out of scope** per the no-browser-shell rule |
+
+**Method:** cross-referenced the competitor feature surface against `upstream/NuvioMobile/.../features/*` and against the actual desktop code in this repo. Findings below are grounded in real files; each maps to a phase task.
+
+**Confirmed gaps (code-grounded):**
+
+- **Stream badges missing, and metadata is dropped before the UI.** `StreamRowViewModel` (`src/Nuvio.Desktop/ViewModels/StreamRowViewModel.cs`) renders only title + quality + provider. The bigger issue is upstream of it: `StreamSourceMapper.ToStreamSource` (`src/Nuvio.Core/Models/StreamItem.cs`) is **lossy** — it discards `BehaviorHints.VideoSize`/`Filename`/`BingeGroup`, `InfoHash`, `FileIdx`, and `ProviderName` that `StreamItem` already carries, so `StreamSource` (`src/Nuvio.Core/Models/StreamSource.cs`) never reaches the UI with badge data. Upstream `features/streams/StreamParser.kt` derives resolution/HDR/codec/audio/size/source badges from exactly those fields. → **Phase 13.**
+- **No debrid / cached surfacing.** No cached-vs-uncached or debrid-provider indication, and no resolved-link reuse. Upstream uses addon-provided debrid + `features/streams/StreamLinkCacheRepository.kt`. → **Phase 13.**
+- **No series season/episode UI.** `DetailsPageView.axaml` shows title/poster/streams only — no season or episode selector — and `IStreamResolver`/`StreamResolver` take no season/episode. Upstream has `features/details/SeriesPlaybackResolver.kt`, `SeasonViewMode.kt`, and `features/player/PlayerEpisodesPanel.kt`. (`WatchProgress.EpisodeId` already exists, so the data model is partly ready.) → **Phase 13.**
+- **No trailers, no watched-state toggle.** `DetailsPageViewModel` has neither; upstream `features/details/components/{DetailTrailersSection,TrailerPlayerPopup,EpisodeWatchedActionSheet}.kt`. → **Phase 13.**
+- **No search history / discover.** `SearchPageViewModel` has neither; upstream `features/search/{SearchHistoryRepository,SearchDiscoverContent}.kt`. → **Phase 13.**
+- **Player feature parity.** No skip-intro, next-episode autoplay, subtitle styling, or audio/subtitle language preferences. Upstream `features/player/skip/*`, `SubtitleStylePanel.kt`, `PlayerLanguagePreferences.kt`. → **Phase 13 (folds into Phase 12 Playback settings).**
+- **HDR playback hardening.** wifi-x-smasher openly lists HDR edge cases; our mpv defaults use `vo=gpu-next` but expose no tone-mapping/passthrough policy or user setting. → **Phase 13.**
+- **Re-confirmed Phase 11 items:** `Views/HomePageView.axaml` still hardcodes "Fixture rails"/"Fixture data" (lines 11 and 13) even in live mode (Phase 11.7), and the single-rail `FirstOrDefault` collapse (Phase 11.1) and host-rejecting `RedirectPolicy` (Phase 11.2) stand as written.
+
+**Already covered by existing phases (no new work, just cross-references):** Library (12.1), local Profiles (12.2), settings tree incl. Trakt/MDBList/TMDB (12.3–12.6), Continue-Watching + hero + real poster art + redirect fix (Phase 11). Upstream `features/collection/*` is a richer "collections/folders" concept than the planned Library — treat as a **Phase 12 stretch** beyond 12.1.
+
+**Out of scope (deliberate):** Tauri/WebView shells; bundling VLC as a second engine (external mpv is already the guaranteed fallback); a dedicated debrid **account** client (Real-Debrid/AllDebrid/Premiumize) like the wifi-x-smasher fork stays a Phase 13 stretch / post-MVP — default parity is addon-provided debrid + link cache; downloads remain Post-MVP and compliance-gated.
+
 ## Agent Skills by Phase
 
 Use installed skills first. Install a new skill only when a phase has a clear gap that existing skills do not cover.
@@ -1029,6 +1056,153 @@ probe.
 - Known issues are documented.
 - Install instructions exist.
 - Release is not Windows-only in practice.
+
+---
+
+## Phase 11: Home, Catalog, and Visual Parity (Stremio/Nuvio-style rails)
+
+> Bring the desktop Home and catalog-browsing experience up to parity with the NuvioMobile/Stremio model: one rail **per catalog** (not per addon), a featured/hero row, continue-watching, real poster artwork in the grids, and a redirect policy that does not break real addons like Cinemeta.
+>
+> **Scheduling note:** although numbered after Phase 10, this is a **prerequisite for the Phase 10 public-beta freeze** — complete it before tagging beta. It was added after Phase 9 hands-on testing revealed the Home screen is still at Phase-3 fixture fidelity in live mode.
+
+**Why this phase exists (Phase 9 hands-on audit findings):**
+
+- `CatalogService.HomeRailsAsync` collapses each addon to a **single** catalog via `FirstOrDefault`, so a multi-catalog addon (e.g. Cinemeta) renders one rail instead of many. Upstream `buildHomeCatalogDefinitions` emits **one rail per catalog** that has no required extras. This is the root cause of "I only see one rail / no Popular/Featured sections."
+- The desktop Home has no hero/featured carousel and no continue-watching row. The mobile Home is Hero + Continue Watching + per-catalog rows (`HomeScreen.kt`, `HomeRepository.kt`).
+- `RedirectPolicy.Validate` rejects **any** cross-host redirect ("redirect changed host; rejecting"), which breaks real Stremio addons whose catalog/stream hosts redirect across hosts (CDN/Cloudflare). Observed live against Cinemeta during Phase 9 testing.
+- Poster grids (`Controls/PosterCard`) render only a letter **initial** — no real artwork — even though `IDesktopImageLoader`/`CachedImageLoader` already power the Details page. This is the dominant "it doesn't look like the mobile app" gap.
+- The Home view (`Views/HomePageView.axaml`) is still hardcoded with Phase-3 "Fixture data"/"Fixture rails" copy even in live mode.
+
+**Suggested skills:** `avalonia`, `ui-audit`, `adapt`, `polish`; `security-best-practices` to review the redirect-policy change.
+
+**Avalonia skill usage:** Use the `avalonia` skill for the hero carousel, per-rail virtualization, real poster image binding through the existing image cache, and the continue-watching layout; keep catalog/redirect logic in `Nuvio.Core`.
+
+**Upstream reuse:** Mirror `buildHomeCatalogDefinitions`, `HomeRepository`, `HomeHeroSection`, and `HomeContinueWatchingSection` from `upstream/NuvioMobile`. Use `upstream/NuvioTV` `HomeLayout`/`CatalogRow` as the big-screen reference.
+
+- [x] 11.1 Home: emit one rail **per catalog** (port `buildHomeCatalogDefinitions`); replace the `FirstOrDefault` single-catalog collapse in `CatalogService.HomeRailsAsync`. Dedupe by `manifestId:type:catalogId`. *(`CatalogService.HomeRailsAsync`/`StreamHomeRailsAsync` iterate every Home-eligible catalog; title `"{catalog.Name} — {MediaTypeLabel}"`, capped at `HomeRailDefaults.CatalogPreviewFetchLimit`.)*
+- [x] 11.2 Relax `RedirectPolicy` to **follow validated cross-host redirects** (still HTTPS-only, still `AddonUrlPolicy`-validated, still capped at `MaxRedirects`); keep the HTTPS→HTTP downgrade rejection. Add a regression for a cross-host HTTPS redirect being followed.
+- [x] 11.3 Render real poster artwork in `PosterCard`: bind `PosterUrl` through `IDesktopImageLoader` with decode sizing, a letter-initial fallback when there is no image or the load fails, and cancellation on container recycle. *(`PosterCardViewModel.EnsureImageAsync`/`CancelImageLoad` driven by `PosterCard.OnAttached/Detached`.)*
+- [x] 11.4 Add a Home hero/featured carousel (shuffled across loaded catalog items, capped like `HOME_HERO_ITEM_LIMIT`) with backdrop art, title, and play/details actions. *(`HomeHeroViewModel`; seeded process-stable shuffle, distinct by `type:id`.)*
+- [x] 11.5 Add a Continue Watching rail on Home sourced from the watch-progress store, with resume and a progress indicator. *(`watch_progress` enriched with display metadata; resume via `MainWindowViewModel.ResolveResumePositionAsync` → `PlayerViewModel` seek-on-load.)*
+- [x] 11.6 Batch and progressively publish home rails (port `HOME_CATALOG_FETCH_BATCH_SIZE` + publish interval) so Home paints incrementally instead of waiting for every catalog. *(`ICatalogDataSource.StreamHomeRailsAsync` `IAsyncEnumerable`; `HomePageViewModel` appends sections as rails arrive.)*
+- [x] 11.7 Replace the hardcoded "Fixture data"/"Fixture rails" Home copy with the active `ICatalogDataSource.ModeLabel`; only show fixture labelling under `--fixture-data`.
+- [x] 11.8 Catalog page: surface per-catalog genre/type filters from manifest extras while preserving paging and virtualization. *(stretch — `GetCatalogChoicesAsync`/`SelectCatalog`; `genre` extra threaded through `BrowseAsync`/`BuildCatalogUri`.)*
+- [x] 11.9 Home catalog settings (enable/disable/reorder/rename rails, hero toggle) persisted via the settings store, mirroring `HomeCatalogSettings*`. *(stretch — `HomeCatalogSettings` persisted under the `home_catalog` settings key; `HomeCustomizationViewModel` surface.)*
+- [x] 11.10 Empty/error parity: distinguish "no addons with catalogs installed" from "addons installed but all rails failed", with actionable recovery copy. *(`HomeEmptyState` enum from `HasCatalogCapableAddonsAsync`.)*
+- [x] 11.11 Cross-platform regression: rail-per-catalog count, redirect-follow, poster image load/fallback, and hero/continue-watching population on Windows/macOS/Linux headless.
+- [x] 11.12 Update `docs/architecture.md`, `docs/phase-1-behavior-mapping.md` (home parity), and `docs/regression-checklist.md`.
+
+- **Verify**: with Cinemeta + a stream addon installed in live mode, Home shows multiple per-catalog rails (Popular/Top movies & series, etc.), a featured hero, continue-watching, and real poster art; catalog fetches succeed through cross-host redirects.
+- **Regression**:
+  - Unit: `HomeRailsAsync` returns one rail per eligible catalog for a multi-catalog manifest.
+  - Unit: redirect policy follows a validated cross-host HTTPS redirect and still rejects HTTPS→HTTP downgrade and over-limit redirects.
+  - Component: poster grid binds and disposes real bitmaps via the image cache without unbounded growth; falls back to the initial on load failure.
+  - Component: hero + continue-watching render and are cancellable.
+  - Integration: an addon with N catalogs yields N home rails; a disabled addon contributes none.
+  - Cross-platform: Home/catalog parity tests pass on Windows, macOS, and Linux.
+
+### Phase 11 Regression Gate
+
+- Home renders one rail per catalog with a featured row and continue-watching.
+- Real poster/backdrop artwork renders in grids within the image-cache budget.
+- Real addons (e.g. Cinemeta) load through redirects without host-rejection errors.
+- No "Fixture" copy appears in live mode.
+- Cross-platform parity regressions pass.
+
+---
+
+## Phase 12: Library, Profiles, Integrations, and Sync Parity
+
+> Close the remaining feature/settings gap with NuvioMobile: a **Library** (saved/bookmarked media), local **Profiles**, an expanded **Settings** tree (Playback, Appearance, Content Discovery, Continue Watching, Homescreen, Notifications), third-party **Integrations** (Trakt, MDBList, TMDB), and an optional **Nuvio account Sync**.
+>
+> **MVP scope tension (read first):** the plan's Data/Cache model states "**No cloud sync in MVP**" and the Post-MVP backlog lists "Cloud sync for watch progress." Account-based **Nuvio Sync** therefore stays behind an opt-in feature flag, OFF by default, and is **not** a Phase 10/beta blocker. Library, local Profiles, and the expanded local settings ARE in-scope desktop parity and should land for beta.
+
+**Why this phase exists (Phase 9 hands-on audit findings):** desktop Settings currently exposes only theme, player mode, volume, hardware decoding, image-cache limits, and TV focus mode (`SettingsPageViewModel`). NuvioMobile ships a Library and a full settings tree — Account, Appearance, Playback, Content Discovery, Continue Watching, Homescreen, Integrations (Trakt/MDBList/TMDB), Notifications, Plugins, Poster Customization, and Licenses — plus local Profiles (`features/{library,profiles}`, `features/settings/*`). None of that exists on desktop yet.
+
+**Suggested skills:** `avalonia`, `ui-audit`, `adapt`; `security-best-practices` for token/credential storage (Trakt/MDBList/TMDB keys, Nuvio account tokens) and redaction.
+
+**Avalonia skill usage:** settings-tree navigation, secret text fields, the profile switcher, and the Library grid (reuse the Phase 11 virtualized poster grid + image cache).
+
+**Upstream reuse:** mirror `features/library`, `features/profiles`, `features/settings/*`, `features/trakt`, `features/mdblist`, `features/tmdb`. Keep persistence in `Nuvio.Data`/`Nuvio.Core`; UI in Avalonia.
+
+- [ ] 12.1 Library: saved/bookmarked media store (SQLite), add/remove from Details and poster context menu, and a Library route using the virtualized poster grid.
+- [ ] 12.2 Local Profiles: multiple local profiles with per-profile settings/progress/library; shell profile switcher; **no account required**.
+- [ ] 12.3 Settings tree: split the single Settings page into sections (Appearance, Playback, Content Discovery, Continue Watching, Homescreen, Integrations, Notifications, Storage/Cache, About/Licenses) with search, mirroring `SettingsRootPage`.
+- [ ] 12.4 Playback settings parity: default quality, preferred audio/subtitle language, autoplay-next, skip-intro behavior, subtitle styling, engine selection (mirror `PlaybackSettingsPage`).
+- [ ] 12.5 Integrations — Trakt: device/OAuth auth, scrobble + continue-watching sync, secure token storage and redaction.
+- [ ] 12.6 Integrations — MDBList + TMDB: API-key entry via secret fields, list/metadata enrichment, secure storage.
+- [ ] 12.7 Continue Watching settings: sort mode, hide/dismiss, days cap, released-only filter (mirror `ContinueWatchingSettingsPage`).
+- [ ] 12.8 Homescreen settings: rail enable/disable/reorder/rename + hero toggle (shared with Phase 11.9 if not already delivered).
+- [ ] 12.9 Notifications settings and optional new-episode notifications.
+- [ ] 12.10 **Nuvio Sync (opt-in, post-MVP-flagged):** account auth + cloud sync of settings/library/progress behind a feature flag with a written scope/privacy decision; OFF by default; not a beta blocker; must not weaken the local-first, no-required-account model.
+- [ ] 12.11 Secure credential storage: OS-appropriate secret storage for all tokens/keys; never logged; redacted in diagnostics.
+- [ ] 12.12 Cross-platform regression for Library, Profiles, settings persistence, and integration token round-trips on Windows/macOS/Linux.
+- [ ] 12.13 Update `docs/architecture.md`, `docs/legal-compliance.md` (third-party API/data handling), and `docs/regression-checklist.md`.
+
+- **Verify**: a user can save items to a Library, switch local profiles, configure playback/appearance/integrations, connect Trakt, and (optionally) enable Nuvio account sync — all persisted across restarts.
+- **Regression**:
+  - Unit: library add/remove round-trips in SQLite; per-profile data stays isolated.
+  - Unit: settings sections persist and reload; secret fields are never logged.
+  - Integration: Trakt/MDBList/TMDB token round-trip with redaction held.
+  - Integration: Nuvio Sync stays OFF and inert unless explicitly enabled.
+  - Cross-platform: Library/Profiles/settings pass on Windows, macOS, and Linux.
+
+### Phase 12 Regression Gate
+
+- Library and local Profiles work offline with no account.
+- Settings tree covers the mobile parity surface.
+- Integration tokens are stored securely and never logged.
+- Nuvio Sync is opt-in, OFF by default, and documented as post-MVP.
+- Cross-platform parity regressions pass.
+
+---
+
+## Phase 13: Stream Presentation, Debrid/Cached Surfacing, Series/Episodes, Trailers, and Search Discovery
+
+> Close the playback-discovery and stream-presentation gap revealed by the **Competitor Parity Audit (June 2026)**. This is the layer that makes stream lists, series browsing, and search feel like the mobile app instead of a flat list — the dominant "it looks less finished than the other ports" gap once Phase 11 artwork lands.
+>
+> **Scheduling note:** stream badges + metadata preservation + series/episode browsing (13.1–13.5) are **beta-relevant** and should land with or just after Phase 11. Trailers, search discovery, player parity, and HDR (13.6–13.11) may trail into the post-beta polish window.
+
+**Why this phase exists (parity audit findings):** see "Competitor Parity Audit (June 2026)". Addons already parse stream metadata, but `StreamSourceMapper` drops it before the UI; series episodes, trailers, search history, and richer player controls have no desktop equivalent yet.
+
+**Suggested skills:** `avalonia`, `ui-audit`, `polish`, `adapt`; `security-best-practices` for any debrid/token handling and link-cache redaction.
+
+**Avalonia skill usage:** badge chip controls, the season/episode selector, the trailer popup surface, and search history/discover lists; keep badge parsing, link caching, series resolution, and auto-play policy in `Nuvio.Core`.
+
+**Upstream reuse:** mirror `features/streams/{StreamParser,StreamModels,StreamLinkCacheRepository,StreamLinkCacheStorage,StreamAutoPlaySelector,StreamAutoPlayPolicy}.kt`, `features/details/{SeriesPlaybackResolver,SeasonViewMode}.kt` + `components/{DetailTrailersSection,TrailerPlayerPopup,EpisodeWatchedActionSheet}.kt`, `features/search/{SearchHistoryRepository,SearchDiscoverContent}.kt`, `features/player/skip/*`, `SubtitleStylePanel.kt`, `PlayerLanguagePreferences.kt`. Port behavior into C# with tests per the upstream-porting rule; do not copy code.
+
+- [ ] 13.1 Stream badge engine: port `StreamParser` badge extraction into `Nuvio.Core` (resolution, HDR/DV, codec, audio, source/release type, human size from `BehaviorHints.VideoSize`, torrent-vs-direct, cached/debrid). Pure and unit-tested, no UI dependency.
+- [ ] 13.2 Stop dropping stream metadata: fix `StreamSourceMapper.ToStreamSource` (or add a parallel `StreamPresentation` record carried alongside `StreamSource`) so `ProviderName`, `Filename`, `VideoSize`, `InfoHash`/`FileIdx`, and the parsed badges survive into the view model. Add a regression asserting badges are not lost across the mapper.
+- [ ] 13.3 Render badge chips in the Details streams list (`StreamRowViewModel` + `DetailsPageView.axaml`): quality/HDR/codec/size/provider/cached chips, ordered by the upstream stream-ranking, with overflow handling, theme tokens, and `AutomationProperties` names.
+- [ ] 13.4 Debrid/cached surfacing: show cached-vs-uncached and debrid-provider badges from addon stream results; port `StreamLinkCacheRepository`/`StreamLinkCacheStorage` into `Nuvio.Data` (SQLite, TTL'd) to reuse resolved links instead of re-resolving on every play. Resolved URLs/tokens must be redacted in logs. *(Dedicated Real-Debrid/AllDebrid/Premiumize account client = stretch / post-MVP.)*
+- [ ] 13.5 Series/episodes: add a season/episode selector to Details (port `SeriesPlaybackResolver`/`SeasonViewMode`), thread season/episode through `IStreamResolver`/`StreamResolver`, persist via the existing `WatchProgress.EpisodeId`, and resume at the correct episode.
+- [ ] 13.6 Stream auto-play / preferred-source selection: port `StreamAutoPlaySelector`/`StreamAutoPlayPolicy` (preferred quality/provider, cached-first) behind a setting that **defaults OFF** to preserve explicit user selection.
+- [ ] 13.7 Trailers: port `DetailTrailersSection`/`TrailerPlayerPopup`; play trailers through `IPlayerEngine` (or a lightweight popup surface) while preserving the single-active-engine rule — no second player stack.
+- [ ] 13.8 Watched-state: mark watched/unwatched per media/episode (port `EpisodeWatchedActionSheet` semantics) persisted in `Nuvio.Data`, reflected in Continue-Watching and as a poster overlay.
+- [ ] 13.9 Search history + discover: persist recent searches (port `SearchHistoryRepository`) and a discover/empty-state grid (`SearchDiscoverContent`) in `SearchPageViewModel`; add a clear-history action; keep history local-only and clearable (privacy).
+- [ ] 13.10 Player feature parity (folds into Phase 12 Playback settings): skip-intro + next-episode autoplay (`features/player/skip/*`), subtitle styling (`SubtitleStylePanel`), and preferred audio/subtitle language (`PlayerLanguagePreferences`), wired through `IPlayerEngine` so both external mpv and libmpv honour them.
+- [ ] 13.11 HDR playback hardening: expose an mpv tone-mapping/passthrough policy (building on `vo=gpu-next`) with a user setting and per-OS defaults; document known HDR limits per OS (direct parity with the competitor's open HDR issues).
+- [ ] 13.12 Cross-platform regression for badge parsing, mapper metadata preservation, link-cache reuse, season/episode resolution + resume, search-history round-trip, and watched-state on Windows/macOS/Linux headless.
+- [ ] 13.13 Update `docs/phase-1-behavior-mapping.md` (stream/series/search parity), `docs/player-integration.md` (HDR + player parity), and `docs/regression-checklist.md`.
+
+- **Verify**: in live mode with a stream addon installed, the Details stream list shows quality/HDR/size/provider/cached badges in ranked order; series show a season/episode selector that resolves and resumes the right episode; trailers play; search remembers recent queries.
+- **Regression**:
+  - Unit: `StreamParser` badge extraction matches upstream for a fixture set of stream names/filenames.
+  - Unit: stream metadata (provider/filename/size/infohash/badges) survives `ToStreamSource` mapping.
+  - Unit: link cache returns a cached resolved URL within TTL and re-resolves after expiry; cached URLs are redacted in logs.
+  - Unit: season/episode resolution selects the correct episode video id and resumes from stored progress.
+  - Integration: auto-play selector, when enabled, picks the expected cached/preferred source; when disabled, selects nothing automatically.
+  - Component: badge chips render and overflow gracefully; search-history list round-trips and clears.
+  - Cross-platform: badge/series/search/watched regressions pass on Windows, macOS, and Linux.
+
+### Phase 13 Regression Gate
+
+- Stream rows show ranked quality/HDR/codec/size/provider/cached badges and no longer drop addon metadata.
+- Debrid/cached state is visible and resolved links are reused via the link cache with redaction held.
+- Series season/episode browsing, resolution, and resume work end to end.
+- Trailers, search history/discover, and watched-state are present and persist.
+- Player parity settings (skip-intro, next-episode, subtitle styling, language prefs) apply to both engines.
+- Cross-platform parity regressions pass.
 
 ---
 

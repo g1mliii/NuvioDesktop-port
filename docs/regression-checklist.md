@@ -70,6 +70,22 @@
 - Windows local gate: `./scripts/verify-all.ps1`.
 - macOS/Linux gate: `.github/workflows/ci.yml` matrix or `./scripts/verify-all.sh` on each Unix target.
 
+## Phase 11 Gate
+
+- Home renders **one rail per Home-eligible catalog** (not per addon): `CatalogService.HomeRailsAsync`/`StreamHomeRailsAsync` iterate every catalog whose only required extras are `skip`/`limit`, deduped by `manifestId:type:catalogId`, capped at `HomeRailDefaults.CatalogPreviewFetchLimit` (18); a disabled addon contributes none.
+- `RedirectPolicy` **follows validated cross-host HTTPS redirects** (CDN/Cloudflare-backed addons like Cinemeta) while still rejecting HTTPS→HTTP downgrades; the `MaxRedirects` cap and `AddonUrlPolicy` target validation still apply, so an over-limit redirect chain is rejected.
+- Poster cards render **real artwork** through `IDesktopImageLoader`/`CachedImageLoader` at `ImageDecodeSizing.PosterDecodeWidth`, load-on-realize and cancel-on-recycle (`PosterCard.OnAttached/Detached` → `PosterCardViewModel.EnsureImageAsync`/`CancelImageLoad`), and fall back to the letter initial when there is no URL or the load fails — within the existing decoded/disk image-cache budget (no unbounded bitmap growth).
+- Home shows a **featured hero** (seeded process-stable shuffle of loaded rail items, distinct by `type:id`, capped at `HOME_HERO_ITEM_LIMIT` = 8) above the rails; hero backdrop loads are cancellable.
+- Home shows a **Continue Watching** rail sourced from `IWatchProgressRepository.RecentAsync`, filtering effectively-completed entries (≥ 90% or within 30 s of the end) and rendering a per-card progress bar. The `watch_progress` table carries display metadata (`media_type`/`title`/`poster_url`/`background_url`) captured at playback time (migration v2, additive — legacy rows read back null); playback resumes from the stored position best-effort.
+- Home **paints incrementally** (progressive publish): `StreamHomeRailsAsync` fetches in batches of `HOME_CATALOG_FETCH_BATCH_SIZE` (4) and `HomePageViewModel` appends each rail as it arrives; `IsLoading` stays true until the last batch.
+- **No "Fixture" copy in live mode**: Home labelling binds `ICatalogDataSource.ModeLabel` ("Live addons" live, "Fixture data" only under `--fixture-data`).
+- **Empty/error parity**: Home distinguishes "no catalog-capable addons installed" (`HomeEmptyState.NoAddons`) from "addons installed but all rails failed/empty" (`HomeEmptyState.AllFailed`) via `HasCatalogCapableAddonsAsync`, with distinct recovery copy.
+- Catalog page exposes **per-catalog genre/type filters** (`GetCatalogChoicesAsync`/`SelectCatalog`; `genre` extra threaded through `BrowseAsync`/`BuildCatalogUri`) while keeping paging + virtualization; changing a filter resets paging.
+- **Home catalog settings** (reorder/enable/disable/rename rails + global hero toggle, per-rail hero sourcing) persist via `ISettingsStore` under the `home_catalog` key (`HomeCatalogSettings`) and apply on reload (`HomeCustomizationViewModel`).
+- Cross-platform parity: the Core/Data/Desktop Phase 11 suites pass headless on Windows, macOS, and Linux.
+- Windows local gate: `./scripts/verify-all.ps1`.
+- macOS/Linux gate: `.github/workflows/ci.yml` matrix or `./scripts/verify-all.sh` on each Unix target.
+
 ## Phase 6 Gate
 
 - `LibMpvLibraryLocator` selects the correct shared-library filename per OS (`libmpv-2.dll`, `libmpv.2.dylib`, `libmpv.so.2`) and honors the `NUVIO_LIBMPV_PATH` override; `LibMpvNativeLibraryLoader` performs native loading in `Nuvio.Platform`; a missing library yields a clear diagnostic — runnable on any host.

@@ -6,6 +6,7 @@ namespace Nuvio.Data.Sqlite;
 public sealed class SqliteSettingsStore : ISettingsStore
 {
     private const string DesktopSettingsKey = "desktop";
+    private const string HomeCatalogSettingsKey = "home_catalog";
     private readonly SqliteStorage _storage;
 
     public SqliteSettingsStore(SqliteStorage storage)
@@ -15,12 +16,8 @@ public sealed class SqliteSettingsStore : ISettingsStore
 
     public async Task<DesktopSettings> LoadAsync(CancellationToken cancellationToken)
     {
-        await using var connection = _storage.OpenConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT value_json FROM settings WHERE key = $key;";
-        SqliteConnectionFactory.AddParameter(command, "$key", DesktopSettingsKey);
-        var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        if (value is not string json || string.IsNullOrWhiteSpace(json))
+        var json = await ReadValueAsync(DesktopSettingsKey, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
         {
             return DesktopSettings.Default;
         }
@@ -30,10 +27,49 @@ public sealed class SqliteSettingsStore : ISettingsStore
         return settings.Normalize();
     }
 
-    public async Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken)
+    public Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken)
     {
-        settings = (settings ?? DesktopSettings.Default).Normalize();
+        var normalized = (settings ?? DesktopSettings.Default).Normalize();
+        return WriteValueAsync(
+            DesktopSettingsKey,
+            JsonSerializer.Serialize(normalized, SqliteJson.Options),
+            cancellationToken);
+    }
 
+    public async Task<HomeCatalogSettings> LoadHomeCatalogSettingsAsync(CancellationToken cancellationToken)
+    {
+        var json = await ReadValueAsync(HomeCatalogSettingsKey, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return HomeCatalogSettings.Default;
+        }
+
+        var settings = JsonSerializer.Deserialize<HomeCatalogSettings>(json, SqliteJson.Options)
+            ?? HomeCatalogSettings.Default;
+        return settings.Normalize();
+    }
+
+    public Task SaveHomeCatalogSettingsAsync(HomeCatalogSettings settings, CancellationToken cancellationToken)
+    {
+        var normalized = (settings ?? HomeCatalogSettings.Default).Normalize();
+        return WriteValueAsync(
+            HomeCatalogSettingsKey,
+            JsonSerializer.Serialize(normalized, SqliteJson.Options),
+            cancellationToken);
+    }
+
+    private async Task<string?> ReadValueAsync(string key, CancellationToken cancellationToken)
+    {
+        await using var connection = _storage.OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT value_json FROM settings WHERE key = $key;";
+        SqliteConnectionFactory.AddParameter(command, "$key", key);
+        var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return value as string;
+    }
+
+    private async Task WriteValueAsync(string key, string valueJson, CancellationToken cancellationToken)
+    {
         await using var connection = _storage.OpenConnection();
         await using var command = connection.CreateCommand();
         command.CommandText = """
@@ -43,8 +79,8 @@ public sealed class SqliteSettingsStore : ISettingsStore
                 value_json = excluded.value_json,
                 updated_at = excluded.updated_at;
             """;
-        SqliteConnectionFactory.AddParameter(command, "$key", DesktopSettingsKey);
-        SqliteConnectionFactory.AddParameter(command, "$value_json", JsonSerializer.Serialize(settings, SqliteJson.Options));
+        SqliteConnectionFactory.AddParameter(command, "$key", key);
+        SqliteConnectionFactory.AddParameter(command, "$value_json", valueJson);
         SqliteConnectionFactory.AddParameter(
             command,
             "$updated_at",

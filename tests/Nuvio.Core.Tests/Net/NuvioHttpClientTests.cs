@@ -69,16 +69,42 @@ public sealed class NuvioHttpClientTests
     }
 
     [Fact]
-    public async Task GetStringAsync_RejectsCrossHostRedirect()
+    public async Task GetStringAsync_FollowsCrossHostHttpsRedirect()
+    {
+        // Real CDN/Cloudflare-backed addons redirect across hosts over HTTPS; this is now followed.
+        var attempts = 0;
+        var handler = new StubHttpMessageHandler((request, _) =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                return Task.FromResult(StubHttpMessageHandler.CreateRedirect(
+                    HttpStatusCode.Redirect,
+                    new Uri("https://cdn.example.net/manifest.json")));
+            }
+
+            return Task.FromResult(StubHttpMessageHandler.CreateResponse(HttpStatusCode.OK, "{\"id\":\"cdn\"}"));
+        });
+
+        var client = CreateClient(handler);
+        var response = await client.GetStringAsync(BuildRequest("https://addons.example.test/manifest.json"), CancellationToken.None);
+
+        Assert.Equal("{\"id\":\"cdn\"}", response.Body);
+        Assert.Equal("https://cdn.example.net/manifest.json", response.FinalUri.ToString());
+    }
+
+    [Fact]
+    public async Task GetStringAsync_RejectsRedirectChainOverLimit()
     {
         var handler = new StubHttpMessageHandler((request, _) =>
             Task.FromResult(StubHttpMessageHandler.CreateRedirect(
                 HttpStatusCode.Redirect,
-                new Uri("https://evil.example.test/manifest.json"))));
+                new Uri("https://cdn.example.net/loop.json"))));
 
         var client = CreateClient(handler);
-        await Assert.ThrowsAsync<NuvioValidationException>(() =>
+        var error = await Assert.ThrowsAsync<NuvioValidationException>(() =>
             client.GetStringAsync(BuildRequest("https://addons.example.test/manifest.json"), CancellationToken.None));
+        Assert.Contains("redirect", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

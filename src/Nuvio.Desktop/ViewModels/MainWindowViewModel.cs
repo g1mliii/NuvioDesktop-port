@@ -23,6 +23,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly ViewModelBase _addonsPage;
     private readonly ViewModelBase _settingsPage;
     private readonly CancellationTokenSource _disposeCancellation = new();
+    private readonly IWatchProgressRepository? _progressRepository;
     private CancellationTokenSource? _navigationCancellation;
     private ViewModelBase _currentPage;
     private DesktopRoute _currentRoute = DesktopRoute.Home;
@@ -85,6 +86,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         ToggleFullscreenCommand = new AsyncRelayCommand(ToggleFullscreenAsync);
         QuitCommand = new RelayCommand(() => QuitRequested?.Invoke());
 
+        _progressRepository = progressRepository;
         var progressRecorder = progressRepository is null
             ? null
             : new PlayerProgressRecorder(progressRepository);
@@ -94,9 +96,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             settingsStore: settingsStore,
             progressRecorder: progressRecorder);
         Player.PropertyChanged += OnPlayerPropertyChanged;
-        _homePage = new HomePageViewModel(dataSource, OpenDetailsAsync);
-        _searchPage = new SearchPageViewModel(dataSource, OpenDetailsAsync);
-        _catalogPage = new CatalogPageViewModel(dataSource, OpenDetailsAsync);
+        _homePage = new HomePageViewModel(dataSource, OpenDetailsAsync, imageLoader, progressRepository, settingsStore);
+        _searchPage = new SearchPageViewModel(dataSource, OpenDetailsAsync, imageLoader);
+        _catalogPage = new CatalogPageViewModel(dataSource, OpenDetailsAsync, imageLoader);
         _detailsPage = new DetailsPageViewModel(dataSource, PlayStreamAsync, imageLoader);
 
         _addonsPage = addonService is null
@@ -512,7 +514,40 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private async Task PlayStreamAsync(StreamSource source, MediaDetails details)
     {
         await NavigateAsync(DesktopRoute.Player);
-        await Player.LoadAndPlayAsync(source, details, _disposeCancellation.Token);
+        var resumeFrom = await ResolveResumePositionAsync(details);
+        await Player.LoadAndPlayAsync(source, details, _disposeCancellation.Token, resumeFrom);
+    }
+
+    /// <summary>Looks up stored watch progress so playback can resume where the user left off. Best-effort:
+    /// any failure or a trivial/near-complete position resolves to null (start from the beginning).</summary>
+    private async Task<TimeSpan?> ResolveResumePositionAsync(MediaDetails details)
+    {
+        if (_progressRepository is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var progress = await _progressRepository.GetAsync(details.Id, null, _disposeCancellation.Token);
+            if (progress is null || progress.Position <= TimeSpan.FromSeconds(5))
+            {
+                return null;
+            }
+
+            // Don't resume an effectively-finished title; let it start over.
+            var nearEnd = progress.Percent >= WatchProgressRules.CompletionThresholdFraction * 100d
+                || (progress.Duration > TimeSpan.Zero && progress.Duration - progress.Position <= TimeSpan.FromSeconds(30));
+            return nearEnd ? null : progress.Position;
+        }
+        catch (OperationCanceledException) when (_disposeCancellation.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Plays a local file chosen via the native file picker (stream G). The view supplies the path;

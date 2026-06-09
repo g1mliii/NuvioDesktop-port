@@ -27,7 +27,8 @@ public interface ICatalogService
         string type,
         string catalogId,
         int skip,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? genre = null);
 
     Task<IReadOnlyList<CatalogItem>> SearchAsync(
         string query,
@@ -35,4 +36,10 @@ public interface ICatalogService
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<CatalogRail>> HomeRailsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Streams Home rails in bounded fetch batches so the UI can paint each rail as it arrives
+    /// (progressive publish) rather than awaiting the whole catalog fan-out.
+    /// </summary>
+    IAsyncEnumerable<CatalogRail> StreamHomeRailsAsync(CancellationToken cancellationToken);
 }

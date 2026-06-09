@@ -147,6 +147,15 @@ public sealed class SqliteMigrationRunner
 
             CREATE INDEX IF NOT EXISTS idx_image_cache_lru
                 ON image_cache_entries(last_accessed_at ASC);
+            """),
+        new SqliteMigration(
+            2,
+            "002_watch_progress_display_metadata",
+            """
+            ALTER TABLE watch_progress ADD COLUMN media_type TEXT NULL;
+            ALTER TABLE watch_progress ADD COLUMN title TEXT NULL;
+            ALTER TABLE watch_progress ADD COLUMN poster_url TEXT NULL;
+            ALTER TABLE watch_progress ADD COLUMN background_url TEXT NULL;
             """)
     ];
 }

@@ -15,15 +15,14 @@ public sealed class RedirectPolicyTests
     }
 
     [Fact]
-    public void Validate_RejectsCrossHostRedirect()
+    public void Validate_AllowsCrossHostHttpsRedirect()
     {
-        var error = Assert.Throws<NuvioValidationException>(() =>
-            RedirectPolicy.Validate(
-                new Uri("https://addons.example.test/manifest.json"),
-                new Uri("https://evil.example.test/manifest.json"),
-                "Addon manifest"));
-
-        Assert.Contains("host", error.Message, StringComparison.OrdinalIgnoreCase);
+        // CDN/Cloudflare-backed addons redirect to a different host over HTTPS; this is now allowed.
+        // The redirect target is independently validated by AddonUrlPolicy before reaching here.
+        RedirectPolicy.Validate(
+            new Uri("https://addons.example.test/manifest.json"),
+            new Uri("https://cdn.example.net/manifest.json"),
+            "Addon manifest");
     }
 
     [Fact]

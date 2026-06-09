@@ -39,6 +39,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
     private bool _isMiniMode;
     private TimeSpan _position = TimeSpan.Zero;
     private TimeSpan? _duration;
+    private TimeSpan? _pendingResume;
     private int _volume = PlayerOptions.ExternalMpvDefault.InitialVolume;
     private IPlayerRenderSource? _videoSource;
 
@@ -209,7 +210,11 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
-    public async Task LoadAndPlayAsync(StreamSource source, MediaDetails details, CancellationToken cancellationToken)
+    public async Task LoadAndPlayAsync(
+        StreamSource source,
+        MediaDetails details,
+        CancellationToken cancellationToken,
+        TimeSpan? resumeFrom = null)
     {
         if (Volatile.Read(ref _isDisposed) == 1)
         {
@@ -231,6 +236,8 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         Duration = null;
         IsPlaying = false;
         IsBuffering = true;
+        // Seek here once the file reports loaded (best-effort resume from saved progress).
+        _pendingResume = resumeFrom is { } target && target > TimeSpan.Zero ? target : null;
         _progressRecorder?.Start(details);
 
         try
@@ -776,6 +783,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
             case PlayerEvent.PlaybackPositionChanged position:
                 Position = position.Position;
                 Duration = position.Duration;
+                TryApplyResume();
                 break;
             case PlayerEvent.FileLoaded:
                 if (!preserveFallbackStatus)
@@ -783,6 +791,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
                     Status = "Stream loaded";
                 }
 
+                TryApplyResume();
                 break;
             case PlayerEvent.PlaybackEnded ended:
                 ClearFallbackDiagnosticStatus();
@@ -809,6 +818,39 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
                 }
 
                 break;
+        }
+    }
+
+    private void TryApplyResume()
+    {
+        if (_pendingResume is not { } target)
+        {
+            return;
+        }
+
+        _pendingResume = null;
+        _ = SafeResumeAsync(target);
+    }
+
+    private async Task SafeResumeAsync(TimeSpan target)
+    {
+        var engine = _engine;
+        if (engine is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await engine.SeekAsync(target, PlaybackToken).ConfigureAwait(false);
+            _dispatchToUi(() => Position = target);
+        }
+        catch (OperationCanceledException) when (PlaybackToken.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            // Best-effort resume; ignore failures and keep playing from the start.
         }
     }
 
@@ -843,6 +885,7 @@ public sealed class PlayerViewModel : ViewModelBase, IAsyncDisposable
         DetachRenderFailureHandler();
         VideoSource = null;
         IsMiniMode = false;
+        _pendingResume = null;
         ClearFallbackDiagnosticStatus();
 
         if (lifetime is not null)

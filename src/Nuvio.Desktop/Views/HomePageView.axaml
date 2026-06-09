@@ -5,64 +5,228 @@
              x:Class="Nuvio.Desktop.Views.HomePageView"
              x:DataType="vm:HomePageViewModel">
     <Grid RowDefinitions="Auto,*" Margin="26,22">
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
             <StackPanel Spacing="4">
                 <TextBlock Text="Home" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="28" FontWeight="SemiBold"/>
-                <TextBlock Text="Fixture rails adapted from the mobile home flow." Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                <TextBlock Text="Catalog rails adapted from the mobile home flow." Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
             </StackPanel>
-            <TextBlock Grid.Column="1" Text="Fixture data" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Content="Customize"
+                    Command="{Binding OpenCustomizationCommand}"
+                    Margin="0,0,12,0"
+                    Padding="12,6"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Customize Home"/>
+            <TextBlock Grid.Column="2" Text="{Binding ModeLabel}" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,18,0,0">
-            <controls:StateOverlay IsLoading="{Binding IsLoading}"
-                                   IsError="{Binding HasError}"
-                                   IsEmpty="{Binding IsEmpty}"
-                                   ErrorMessage="{Binding ErrorMessage}"
-                                   LoadingMessage="Loading home…"
-                                   EmptyMessage="No home rows available"
-                                   Hint="Install and validate at least one addon before loading catalog rows on Home, and confirm your network is reachable."/>
-
-            <ListBox x:Name="HomeSectionsList"
-                     ItemsSource="{Binding Sections}"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     Padding="0">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <VirtualizingStackPanel/>
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:HomeSectionViewModel">
-                        <StackPanel Spacing="10" Margin="0,0,0,20">
-                            <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="18" FontWeight="SemiBold"/>
-                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                <ItemsControl ItemsSource="{Binding Items}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="12"/>
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:PosterCardViewModel">
-                                            <controls:PosterCard x:Name="PosterCard"
-                                                                 Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
-                                                                 Title="{Binding Name}"
-                                                                 Subtitle="{Binding ReleaseInfo}"
-                                                                 Initial="{Binding PosterInitial}"
-                                                                 Command="{Binding OpenCommand}"
-                                                                 CommandParameter="{Binding Item}"
-                                                                 AutomationProperties.Name="{Binding Name}"
-                                                                 CardWidth="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PosterCardWidth, FallbackValue=150}"
-                                                                 CardHeight="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PosterCardHeight, FallbackValue=252}"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+        <Grid Grid.Row="1" Margin="0,18,0,0" RowDefinitions="Auto,*">
+            <!-- Hero / featured carousel -->
+            <Border Grid.Row="0"
+                    IsVisible="{Binding HasHero}"
+                    Height="252"
+                    CornerRadius="12"
+                    ClipToBounds="True"
+                    Margin="0,0,0,18">
+                <Grid x:DataType="vm:HomeHeroViewModel" DataContext="{Binding Hero}">
+                    <Border Background="{DynamicResource SurfaceHighlightBrush}">
+                        <TextBlock Text="{Binding SelectedItem.Initial}"
+                                   IsVisible="{Binding SelectedItem.ShowBackdropInitial}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="96"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentBrush}"/>
+                    </Border>
+                    <Image Source="{Binding SelectedItem.BackdropImage}" Stretch="UniformToFill"/>
+                    <Border Background="#66000000"/>
+                    <StackPanel VerticalAlignment="Bottom" Margin="24,20" Spacing="8">
+                        <TextBlock Text="{Binding SelectedItem.Title}"
+                                   FontSize="26"
+                                   FontWeight="Bold"
+                                   Foreground="White"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding SelectedItem.Subtitle}"
+                                   FontSize="13"
+                                   Foreground="#E6FFFFFF"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                            <Button Content="▶  Play"
+                                    Command="{Binding SelectedItem.OpenCommand}"
+                                    CommandParameter="{Binding SelectedItem.Item}"
+                                    Padding="18,7"
+                                    CornerRadius="6"
+                                    Background="{DynamicResource AccentBrush}"
+                                    Foreground="White"
+                                    AutomationProperties.Name="Play featured title"/>
+                            <Button Content="Details"
+                                    Command="{Binding SelectedItem.OpenCommand}"
+                                    CommandParameter="{Binding SelectedItem.Item}"
+                                    Padding="18,7"
+                                    CornerRadius="6"
+                                    AutomationProperties.Name="Open featured details"/>
                         </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Items}"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Top"
+                                  Margin="0,12,16,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HomeHeroItemViewModel">
+                                <Button Width="14"
+                                        Height="14"
+                                        CornerRadius="7"
+                                        Padding="0"
+                                        Command="{Binding $parent[ItemsControl].((vm:HomeHeroViewModel)DataContext).SelectCommand}"
+                                        CommandParameter="{Binding}"
+                                        AutomationProperties.Name="{Binding Title}">
+                                    <Button.Background>
+                                        <SolidColorBrush Color="White"
+                                                         Opacity="{Binding IsSelected, Converter={x:Static vm:HomeBindingConverters.SelectedDotOpacity}}"/>
+                                    </Button.Background>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <controls:StateOverlay IsLoading="{Binding IsLoading}"
+                                       IsError="{Binding HasError}"
+                                       IsEmpty="{Binding IsEmpty}"
+                                       ErrorMessage="{Binding ErrorMessage}"
+                                       LoadingMessage="Loading home…"
+                                       EmptyMessage="{Binding EmptyMessage}"
+                                       Hint="{Binding EmptyHint}"/>
+
+                <ListBox x:Name="HomeSectionsList"
+                         ItemsSource="{Binding Sections}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Padding="0">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HomeSectionViewModel">
+                            <StackPanel Spacing="10" Margin="0,0,0,20">
+                                <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="18" FontWeight="SemiBold"/>
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="12"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:PosterCardViewModel">
+                                                <controls:PosterCard x:Name="PosterCard"
+                                                                     Classes.tv-focus="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsTvLayout, FallbackValue=false}"
+                                                                     Title="{Binding Name}"
+                                                                     Subtitle="{Binding ReleaseInfo}"
+                                                                     Initial="{Binding PosterInitial}"
+                                                                     PosterImage="{Binding PosterImage}"
+                                                                     ShowInitial="{Binding ShowInitial}"
+                                                                     Progress="{Binding Progress}"
+                                                                     ShowProgress="{Binding ShowProgress}"
+                                                                     Command="{Binding OpenCommand}"
+                                                                     CommandParameter="{Binding Item}"
+                                                                     AutomationProperties.Name="{Binding Name}"
+                                                                     CardWidth="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PosterCardWidth, FallbackValue=150}"
+                                                                     CardHeight="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PosterCardHeight, FallbackValue=252}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Home customization overlay (reorder / enable / rename / hero) -->
+                <Border IsVisible="{Binding IsCustomizing}"
+                        Background="{DynamicResource SurfaceBrush}"
+                        CornerRadius="10"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        Padding="20"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Stretch"
+                        MaxWidth="640"
+                        Margin="0,4">
+                    <Grid x:DataType="vm:HomeCustomizationViewModel" DataContext="{Binding Customization}" RowDefinitions="Auto,Auto,*,Auto">
+                        <TextBlock Text="Customize Home" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <CheckBox Grid.Row="1"
+                                  Margin="0,10,0,8"
+                                  IsChecked="{Binding HeroEnabled, Mode=TwoWay}"
+                                  Content="Show featured hero banner"
+                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Rows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HomeCustomizationRowViewModel">
+                                        <Border Padding="8" Margin="0,0,0,8" CornerRadius="6"
+                                                Background="{DynamicResource CardBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1">
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" RowDefinitions="Auto,Auto">
+                                                <Button Content="▲"
+                                                        Padding="8,2"
+                                                        Command="{Binding $parent[ItemsControl].((vm:HomeCustomizationViewModel)DataContext).MoveUpCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        AutomationProperties.Name="Move rail up"/>
+                                                <Button Grid.Column="1"
+                                                        Content="▼"
+                                                        Padding="8,2"
+                                                        Margin="6,0,10,0"
+                                                        Command="{Binding $parent[ItemsControl].((vm:HomeCustomizationViewModel)DataContext).MoveDownCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        AutomationProperties.Name="Move rail down"/>
+                                                <TextBox Grid.Column="2"
+                                                         Text="{Binding CustomTitle, Mode=TwoWay}"
+                                                         PlaceholderText="{Binding DefaultTitle}"
+                                                         AutomationProperties.Name="Rail title"/>
+                                                <CheckBox Grid.Column="3"
+                                                          Margin="10,0,0,0"
+                                                          IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                                          Content="Show"
+                                                          Foreground="{DynamicResource TextPrimaryBrush}"
+                                                          AutomationProperties.Name="Show rail"/>
+                                                <CheckBox Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2"
+                                                          Margin="0,6,0,0"
+                                                          IsChecked="{Binding HeroSourceEnabled, Mode=TwoWay}"
+                                                          Content="Feature in hero"
+                                                          Foreground="{DynamicResource TextMutedBrush}"
+                                                          AutomationProperties.Name="Feature rail in hero"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button Content="Cancel"
+                                    Padding="16,7"
+                                    Command="{Binding $parent[UserControl].((vm:HomePageViewModel)DataContext).CloseCustomizationCommand}"
+                                    AutomationProperties.Name="Cancel customization"/>
+                            <Button Content="Save"
+                                    Padding="16,7"
+                                    Background="{DynamicResource AccentBrush}"
+                                    Foreground="White"
+                                    Command="{Binding SaveCommand}"
+                                    AutomationProperties.Name="Save customization"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

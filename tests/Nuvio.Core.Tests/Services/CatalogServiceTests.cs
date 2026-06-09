@@ -84,6 +84,22 @@ public sealed class CatalogServiceTests
     }
 
     [Fact]
+    public async Task BrowseAsync_IncludesGenreExtraInUrl()
+    {
+        var (service, handler, repository) = CreateService();
+        await InstallAddonAsync(repository, "addon.alpha", "alpha.example.test");
+
+        handler.AddResponse("alpha.example.test", "/catalog/movie/top/genre=Action.json",
+            BuildCatalogPayload(("tt1", "movie", "One")));
+
+        var page = await service.BrowseAsync("addon.alpha", "movie", "top", skip: 0, CancellationToken.None, genre: "Action");
+
+        Assert.Single(page.Items);
+        Assert.Contains(handler.Requests, request =>
+            request.RequestUri!.AbsolutePath.Contains("genre=Action", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task SearchAsync_HonorsCancellation()
     {
         var (service, handler, repository) = CreateService();
@@ -132,6 +148,141 @@ public sealed class CatalogServiceTests
 
         Assert.Equal(addonCount, results.Count);
         Assert.InRange(maxObserved, 1, 8);
+    }
+
+    [Fact]
+    public async Task HomeRailsAsync_ReturnsOneRailPerEligibleCatalog()
+    {
+        var (service, handler, repository) = CreateService();
+        await InstallAddonWithCatalogsAsync(repository, "addon.multi", "multi.example.test",
+        [
+            new AddonCatalog("movie", "top", "Top", Array.Empty<AddonExtraProperty>()),
+            new AddonCatalog("movie", "popular", "Popular", Array.Empty<AddonExtraProperty>()),
+            // Requires a non-skip/limit extra → not Home-eligible, contributes no rail.
+            new AddonCatalog("movie", "byyear", "By Year",
+                [new AddonExtraProperty("year", IsRequired: true, Array.Empty<string>(), null)]),
+        ]);
+
+        handler.AddResponse("multi.example.test", "/catalog/movie/top.json",
+            BuildCatalogPayload(("tt1", "movie", "One")));
+        handler.AddResponse("multi.example.test", "/catalog/movie/popular.json",
+            BuildCatalogPayload(("tt2", "movie", "Two")));
+
+        var rails = await service.HomeRailsAsync(CancellationToken.None);
+
+        Assert.Equal(2, rails.Count);
+        Assert.Contains(rails, rail => rail.Title == "Top — Movies" && rail.CatalogId == "top");
+        Assert.Contains(rails, rail => rail.Title == "Popular — Movies" && rail.CatalogId == "popular");
+    }
+
+    [Fact]
+    public async Task HomeRailsAsync_DisabledAddonContributesNoRails()
+    {
+        var (service, handler, repository) = CreateService();
+        await InstallAddonWithCatalogsAsync(repository, "addon.off", "off.example.test",
+            [new AddonCatalog("movie", "top", "Top", Array.Empty<AddonExtraProperty>())],
+            enabled: false);
+
+        var rails = await service.HomeRailsAsync(CancellationToken.None);
+
+        Assert.Empty(rails);
+        Assert.DoesNotContain(handler.Requests, request =>
+            request.RequestUri!.Host.Equals("off.example.test", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task HomeRailsAsync_DedupesByCatalogKey()
+    {
+        var (service, handler, repository) = CreateService();
+        await InstallAddonWithCatalogsAsync(repository, "addon.dupe", "dupe.example.test",
+        [
+            new AddonCatalog("movie", "top", "Top", Array.Empty<AddonExtraProperty>()),
+            new AddonCatalog("movie", "top", "Top Again", Array.Empty<AddonExtraProperty>()),
+        ]);
+
+        handler.AddResponse("dupe.example.test", "/catalog/movie/top.json",
+            BuildCatalogPayload(("tt1", "movie", "One")));
+
+        var rails = await service.HomeRailsAsync(CancellationToken.None);
+
+        Assert.Single(rails);
+        Assert.Equal("top", rails[0].CatalogId);
+    }
+
+    [Fact]
+    public async Task HomeRailsAsync_CapsItemsPerRail()
+    {
+        var (service, handler, repository) = CreateService();
+        await InstallAddonWithCatalogsAsync(repository, "addon.big", "big.example.test",
+            [new AddonCatalog("movie", "top", "Top", Array.Empty<AddonExtraProperty>())]);
+
+        var many = Enumerable.Range(1, 40)
+            .Select(i => ($"tt{i}", "movie", $"Movie {i}"))
+            .ToArray();
+        handler.AddResponse("big.example.test", "/catalog/movie/top.json", BuildCatalogPayload(many));
+
+        var rails = await service.HomeRailsAsync(CancellationToken.None);
+
+        Assert.Single(rails);
+        Assert.Equal(HomeRailDefaults.CatalogPreviewFetchLimit, rails[0].Items.Count);
+    }
+
+    [Fact]
+    public async Task StreamHomeRailsAsync_YieldsSameRailsAsHomeRails()
+    {
+        var (service, handler, repository) = CreateService();
+        await InstallAddonWithCatalogsAsync(repository, "addon.multi", "multi.example.test",
+        [
+            new AddonCatalog("movie", "top", "Top", Array.Empty<AddonExtraProperty>()),
+            new AddonCatalog("series", "trending", "Trending", Array.Empty<AddonExtraProperty>()),
+        ]);
+
+        handler.AddResponse("multi.example.test", "/catalog/movie/top.json",
+            BuildCatalogPayload(("tt1", "movie", "One")));
+        handler.AddResponse("multi.example.test", "/catalog/series/trending.json",
+            BuildCatalogPayload(("tt2", "series", "Two")));
+
+        var streamed = new List<CatalogRail>();
+        await foreach (var rail in service.StreamHomeRailsAsync(CancellationToken.None))
+        {
+            streamed.Add(rail);
+        }
+
+        Assert.Equal(2, streamed.Count);
+        Assert.Contains(streamed, rail => rail.Title == "Top — Movies");
+        Assert.Contains(streamed, rail => rail.Title == "Trending — Series");
+    }
+
+    private static async Task InstallAddonWithCatalogsAsync(
+        IAddonRepository repository,
+        string id,
+        string host,
+        IReadOnlyList<AddonCatalog> catalogs,
+        bool enabled = true)
+    {
+        var manifest = new AddonManifest(
+            Id: id,
+            Name: id,
+            Description: string.Empty,
+            Version: "1.0.0",
+            LogoUrl: null,
+            Resources: [new AddonResource("catalog", ["movie", "series"], Array.Empty<string>())],
+            Types: ["movie", "series"],
+            IdPrefixes: Array.Empty<string>(),
+            Catalogs: catalogs,
+            BehaviorHints: new AddonBehaviorHints(),
+            TransportUrl: new Uri($"https://{host}/manifest.json"));
+
+        var addon = new ManagedAddon(
+            Id: id,
+            ManifestUrl: new Uri($"https://{host}/manifest.json"),
+            Manifest: manifest,
+            Enabled: enabled,
+            SortOrder: 0,
+            LastError: null,
+            LastRefreshedAt: DateTimeOffset.UtcNow);
+
+        await repository.UpsertAsync(addon, CancellationToken.None);
     }
 
     private static async Task InstallAddonAsync(

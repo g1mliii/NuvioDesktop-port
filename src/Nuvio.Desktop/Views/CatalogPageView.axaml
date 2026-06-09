@@ -1,19 +1,44 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Nuvio.Desktop.ViewModels"
+             xmlns:services="using:Nuvio.Desktop.Services"
              xmlns:controls="using:Nuvio.Desktop.Controls"
              x:Class="Nuvio.Desktop.Views.CatalogPageView"
              x:DataType="vm:CatalogPageViewModel">
-    <Grid RowDefinitions="Auto,*" Margin="26,22">
+    <Grid RowDefinitions="Auto,Auto,*" Margin="26,22">
         <Grid ColumnDefinitions="*,Auto">
             <StackPanel Spacing="4">
                 <TextBlock Text="Catalog" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="28" FontWeight="SemiBold"/>
-                <TextBlock Text="{Binding ItemCount, StringFormat={}{0} fixture titles}" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                <TextBlock Text="{Binding ItemCount, StringFormat={}{0} titles}" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
             </StackPanel>
             <TextBlock Grid.Column="1" Text="Virtualized rows" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,18,0,0">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,14,0,0"
+                    IsVisible="{Binding HasFilters}">
+            <StackPanel Spacing="3">
+                <TextBlock Text="Catalog" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
+                <ComboBox ItemsSource="{Binding Catalogs}"
+                          SelectedItem="{Binding SelectedCatalog, Mode=TwoWay}"
+                          MinWidth="220"
+                          AutomationProperties.Name="Catalog selection">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="services:DesktopCatalogChoice">
+                            <TextBlock Text="{Binding DisplayName}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Spacing="3" IsVisible="{Binding HasGenres}">
+                <TextBlock Text="Genre" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
+                <ComboBox ItemsSource="{Binding Genres}"
+                          SelectedItem="{Binding SelectedGenre, Mode=TwoWay}"
+                          MinWidth="160"
+                          AutomationProperties.Name="Genre filter"/>
+            </StackPanel>
+        </StackPanel>
+
+        <Grid Grid.Row="2" Margin="0,18,0,0">
             <controls:StateOverlay IsLoading="{Binding IsLoading}"
                                    IsError="{Binding HasError}"
                                    IsEmpty="{Binding IsEmpty}"
@@ -47,6 +72,8 @@
                                                          Title="{Binding Name}"
                                                          Subtitle="{Binding ReleaseInfo}"
                                                          Initial="{Binding PosterInitial}"
+                                                         PosterImage="{Binding PosterImage}"
+                                                         ShowInitial="{Binding ShowInitial}"
                                                          Command="{Binding OpenCommand}"
                                                          CommandParameter="{Binding Item}"
                                                          AutomationProperties.Name="{Binding Name}"
